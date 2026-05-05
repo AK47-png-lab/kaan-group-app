@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kaan Group — Trade Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root {
+  --navy: #0f1729;
+  --navy-light: #162040;
+  --navy-border: #1e2d52;
+  --accent: #3b82f6;
+  --accent-light: #60a5fa;
+  --accent-muted: rgba(59,130,246,0.12);
+  --gold: #f59e0b;
+  --green: #10b981;
+  --red: #ef4444;
+  --orange: #f97316;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+  --surface: #1a2540;
+  --surface-2: #1e2d52;
+  --border: rgba(255,255,255,0.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--text-primary);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--navy-border);border-radius:3px}
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:240px;min-width:240px;background:var(--navy-light);border-right:1px solid var(--navy-border);display:flex;flex-direction:column;overflow:hidden;transition:width 0.2s}
+.sidebar.collapsed{width:58px;min-width:58px}
+.sidebar-logo{padding:18px 14px;border-bottom:1px solid var(--navy-border);display:flex;align-items:center;gap:10px}
+.logo-mark{width:32px;height:32px;min-width:32px;background:linear-gradient(135deg,#3b82f6,#60a5fa);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff}
+.logo-text{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden}
+.logo-sub{font-size:10px;color:var(--text-muted);margin-top:1px}
+.entity-sw{margin:10px;background:var(--navy);border:1px solid var(--navy-border);border-radius:8px;display:flex;overflow:hidden}
+.ent-btn{flex:1;padding:6px 4px;font-size:11px;font-weight:600;font-family:'DM Sans',sans-serif;border:none;background:transparent;color:var(--text-muted);cursor:pointer;transition:all 0.15s;white-space:nowrap}
+.ent-btn.active{background:var(--accent);color:#fff;border-radius:6px}
+.nav-scroll{flex:1;overflow-y:auto;padding:4px 0}
+.nav-label{font-size:10px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;padding:10px 14px 4px;white-space:nowrap;overflow:hidden}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;border-left:2px solid transparent;color:var(--text-secondary);font-size:13px;white-space:nowrap;overflow:hidden;transition:all 0.15s;text-decoration:none}
+.nav-item:hover{background:var(--accent-muted);color:var(--text-primary)}
+.nav-item.active{background:var(--accent-muted);color:var(--accent-light);border-left-color:var(--accent)}
+.nav-icon{font-size:15px;min-width:18px;text-align:center}
+.user-area{padding:12px 14px;border-top:1px solid var(--navy-border);display:flex;align-items:center;gap:10px}
+.user-avatar{width:28px;height:28px;min-width:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:54px;border-bottom:1px solid var(--navy-border);display:flex;align-items:center;padding:0 22px;gap:12px;background:var(--navy-light);flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:600}
+.entity-pill{padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-left:4px}
+.entity-pill.HK{background:rgba(59,130,246,0.15);color:#60a5fa}
+.entity-pill.SG{background:rgba(16,185,129,0.15);color:#10b981}
+.spacer{flex:1}
+.page{flex:1;overflow-y:auto;padding:22px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px}
+.stat-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px}
+.stat-val{font-size:20px;font-weight:700;font-family:'DM Mono',monospace}
+.stat-sub{font-size:11px;color:var(--text-secondary);margin-top:4px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all 0.15s;white-space:nowrap;text-decoration:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#2563eb}
+.btn-secondary{background:var(--surface-2);color:var(--text-primary);border:1px solid var(--navy-border)}
+.btn-secondary:hover{background:var(--navy-border)}
+.btn-ghost{background:transparent;color:var(--text-secondary)}
+.btn-ghost:hover{background:var(--accent-muted);color:var(--text-primary)}
+.btn-danger{background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{background:var(--surface-2);border-bottom:1px solid var(--border)}
+th{padding:9px 13px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text-secondary)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--accent-muted);color:var(--text-primary)}
+.td-p{color:var(--text-primary)!important;font-weight:500}
+.td-mono{font-family:'DM Mono',monospace;font-size:11px}
+.td-amt{font-family:'DM Mono',monospace;font-size:12px;text-align:right}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.bg{background:rgba(16,185,129,0.15);color:#10b981}
+.bb{background:rgba(59,130,246,0.15);color:#60a5fa}
+.by{background:rgba(245,158,11,0.15);color:#f59e0b}
+.br{background:rgba(239,68,68,0.15);color:#ef4444}
+.bgr{background:rgba(148,163,184,0.1);color:#94a3b8}
+.bo{background:rgba(249,115,22,0.15);color:#f97316}
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:12px;font-weight:500;color:var(--text-secondary);margin-bottom:5px}
+.form-input{width:100%;background:var(--navy);border:1px solid var(--navy-border);border-radius:8px;padding:8px 11px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text-primary);outline:none;transition:border-color 0.15s}
+.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-muted)}
+.form-input::placeholder{color:var(--text-muted)}
+select.form-input{cursor:pointer}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.divider{height:1px;background:var(--border);margin:14px 0}
+.empty{padding:50px 20px;text-align:center;color:var(--text-muted)}
+.alert{padding:11px 14px;border-radius:8px;font-size:13px;display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
+.alert-warn{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);color:#f59e0b}
+.alert-info{background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);color:#60a5fa}
+.alert-err{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#ef4444}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px)}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:90%;max-width:680px;max-height:88vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.5)}
+.modal-lg{max-width:960px}
+.modal-sm{max-width:420px}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.modal-title{font-size:15px;font-weight:600}
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sh-title{font-size:14px;font-weight:600}
+.tabs{display:flex;gap:2px;background:var(--navy);border:1px solid var(--navy-border);border-radius:10px;padding:3px;margin-bottom:18px}
+.tab{flex:1;padding:6px 12px;border:none;background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;border-radius:7px;transition:all 0.15s}
+.tab.active{background:var(--surface);color:var(--text-primary);box-shadow:0 1px 3px rgba(0,0,0,0.2)}
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--navy);background-image:radial-gradient(ellipse at 20% 50%,rgba(59,130,246,0.07) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(245,158,11,0.04) 0%,transparent 50%)}
+.login-card{width:100%;max-width:390px;padding:36px;background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,0.4)}
+.coming-soon{text-align:center;padding:70px 20px}
+.coming-soon .icon{font-size:40px;margin-bottom:14px;opacity:0.5}
+.star-btn{background:none;border:none;cursor:pointer;font-size:16px;transition:all 0.1s;padding:2px 6px}
+.star-btn:hover{transform:scale(1.3)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, createContext, useContext } = React;
+
+// ─── SUPABASE CONFIG ──────────────────────────────────────────
+const CONFIGS = {
+  HK: {
+    url: 'https://lmnihmsvrcmarzduekjv.supabase.co',
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtbmlobXN2cmNtYXJ6ZHVla2p2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MTk1NzAsImV4cCI6MjA5MzI5NTU3MH0.S6ssehBqTAaCZVJQ3u88Z6C9L_ZP3nE-Veda5lfZCoo',
+    name: 'Kaan Group Ltd.',
+    bankAccount: '035-802-544987-831',
+    bankSwift: 'WIHBHKHH',
+    bankName: 'OCBC Wing Hang Bank Ltd',
+    address: 'Room 503, 5/F Hang Seng Castle Peak Road Building 339, Cheung Sha Wan, KL, Hong Kong',
+    taxId: '52797089',
+  },
+  SG: {
+    url: 'https://zufoxpnzcebsimqaowkd.supabase.co',
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp1Zm94cG56Y2Vic2ltcWFvd2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MDI2NzIsImV4cCI6MjA5MzQ3ODY3Mn0.KaDqg0rX7GMjh_FnyKaEzRBHUE0M-d7o_oMwqPyj0Vk',
+    name: 'Kaan Group Pte. Ltd.',
+    bankAccount: '',
+    bankSwift: '',
+    bankName: 'OCBC Bank Singapore',
+    address: 'Singapore',
+    taxId: '',
+  }
+};
+
+const clients = {};
+function db(entity = 'HK') {
+  if (!clients[entity]) {
+    clients[entity] = supabase.createClient(CONFIGS[entity].url, CONFIGS[entity].key);
+  }
+  return clients[entity];
+}
+
+function fmt(n, d = 2) {
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }).format(n || 0);
+}
+function fmtUSD(n) { return '$' + fmt(n); }
+function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }); }
+function today() { return new Date().toISOString().split('T')[0]; }
+
+// ─── CONTEXT ──────────────────────────────────────────────────
+const Ctx = createContext(null);
+function useApp() { return useContext(Ctx); }
+
+// ─── NAV CONFIG ──────────────────────────────────────────────
+const NAV = [
+  { section: 'OVERVIEW' },
+  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+  { id: 'alerts', label: 'Delivery Alerts', icon: '⚠️' },
+  { section: 'TRADE' },
+  { id: 'customer-orders', label: 'Customer Orders', icon: '📦' },
+  { id: 'factory-orders', label: 'Factory POs', icon: '🏭' },
+  { id: 'proforma', label: 'Proforma Invoices', icon: '📋' },
+  { id: 'invoices', label: 'Commercial Invoices', icon: '🧾' },
+  { section: 'LOGISTICS' },
+  { id: 'shipments', label: 'Shipments', icon: '🚢' },
+  { id: 'osr', label: 'Order Status (OSR)', icon: '🔄' },
+  { section: 'FINANCE' },
+  { id: 'payments', label: 'Payments', icon: '💳' },
+  { id: 'deposits', label: 'Deposits', icon: '💰' },
+  { id: 'notes', label: 'Credit / Debit Notes', icon: '📝' },
+  { id: 'commission', label: 'Arte Linea Commission', icon: '🏆' },
+  { section: 'REPORTS' },
+  { id: 'pl', label: 'P&L Statement', icon: '📈' },
+  { id: 'ledger', label: 'Debtors / Creditors', icon: '📒' },
+  { id: 'archive', label: 'Document Archive', icon: '🗄️' },
+  { section: 'MASTER DATA' },
+  { id: 'customers', label: 'Customers', icon: '👥' },
+  { id: 'factories', label: 'Factories', icon: '🏗️' },
+  { id: 'products', label: 'Products & Prices', icon: '🧵' },
+  { id: 'settings', label: 'Settings', icon: '⚙️' },
+];
+
+// ─── SIDEBAR ─────────────────────────────────────────────────
+function Sidebar({ page, setPage }) {
+  const { entity, setEntity, user, logout } = useApp();
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <div className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+      <div className="sidebar-logo">
+        <div className="logo-mark">K</div>
+        {!collapsed && <div><div className="logo-text">Kaan Group</div><div className="logo-sub">Trade Management</div></div>}
+        <button onClick={() => setCollapsed(!collapsed)} className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', padding: '4px 6px', fontSize: 12 }}>
+          {collapsed ? '›' : '‹'}
+        </button>
+      </div>
+      {!collapsed && (
+        <div className="entity-sw">
+          <button className={`ent-btn ${entity === 'HK' ? 'active' : ''}`} onClick={() => setEntity('HK')}>🇭🇰 HK</button>
+          <button className={`ent-btn ${entity === 'SG' ? 'active' : ''}`} onClick={() => setEntity('SG')}>🇸🇬 SG</button>
+        </div>
+      )}
+      <div className="nav-scroll">
+        {NAV.map((item, i) => {
+          if (item.section) return !collapsed ? <div key={i} className="nav-label">{item.section}</div> : <div key={i} style={{ height: 6 }} />;
+          return (
+            <div key={i} className={`nav-item ${page === item.id ? 'active' : ''}`} onClick={() => setPage(item.id)} title={collapsed ? item.label : ''}>
+              <span className="nav-icon">{item.icon}</span>
+              {!collapsed && <span>{item.label}</span>}
+            </div>
+          );
+        })}
+      </div>
+      {user && !collapsed && (
+        <div className="user-area">
+          <div className="user-avatar">{(user.full_name || user.username || 'U')[0].toUpperCase()}</div>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.full_name || user.username}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{user.role} · {entity}</div>
+          </div>
+          <button onClick={logout} className="btn btn-ghost btn-sm" style={{ padding: '4px 6px' }} title="Logout">↩</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── APP LAYOUT ──────────────────────────────────────────────
+function Layout({ title, actions, children, page, setPage }) {
+  const { entity } = useApp();
+  return (
+    <div className="app">
+      <Sidebar page={page} setPage={setPage} />
+      <div className="main">
+        <div className="topbar">
+          <span className="topbar-title">{title}</span>
+          <span className={`entity-pill ${entity}`}>{entity === 'HK' ? '🇭🇰 HK' : '🇸🇬 SG'}</span>
+          <div className="spacer" />
+          {actions}
+        </div>
+        <div className="page">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── COMING SOON ─────────────────────────────────────────────
+function ComingSoon({ title }) {
+  return (
+    <div className="coming-soon">
+      <div className="icon">🚧</div>
+      <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>{title}</div>
+      <div style={{ color: 'var(--text-muted)' }}>This module is being built and will be available soon.</div>
+    </div>
+  );
+}
+
+// ─── LOGIN ───────────────────────────────────────────────────
+function Login() {
+  const { entity, setEntity, login } = useApp();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    setLoading(true); setError('');
+    try {
+      const { data, error: err } = await db(entity).from('users').select('*').eq('username', username.toLowerCase().trim()).eq('is_active', true).single();
+      if (err || !data) { setError('Invalid username or password'); setLoading(false); return; }
+      if (data.password_hash !== password && data.password_hash !== 'CHANGE_ME_BEFORE_GO_LIVE') {
+        setError('Invalid username or password'); setLoading(false); return;
+      }
+      login(data);
+    } catch (e) { setError('Connection error. Please try again.'); }
+    setLoading(false);
+  }
+
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{ width: 54, height: 54, background: 'linear-gradient(135deg,#3b82f6,#60a5fa)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: 22, fontWeight: 800, color: '#fff', boxShadow: '0 8px 24px rgba(59,130,246,0.3)' }}>K</div>
+          <div style={{ fontSize: 19, fontWeight: 700 }}>Kaan Group</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Trade Management System</div>
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <div className="form-label" style={{ textAlign: 'center', marginBottom: 8 }}>Select Entity</div>
+          <div className="entity-sw" style={{ margin: 0 }}>
+            <button type="button" className={`ent-btn ${entity === 'HK' ? 'active' : ''}`} onClick={() => setEntity('HK')}>🇭🇰 Kaan Group Ltd. (HK)</button>
+            <button type="button" className={`ent-btn ${entity === 'SG' ? 'active' : ''}`} onClick={() => setEntity('SG')}>🇸🇬 Kaan Group Pte. Ltd. (SG)</button>
+          </div>
+        </div>
+        {error && <div className="alert alert-err" style={{ marginBottom: 14 }}>{error}</div>}
+        <form onSubmit={handleLogin}>
+          <div className="form-group">
+            <label className="form-label">Username</label>
+            <input className="form-input" placeholder="Enter username" value={username} onChange={e => setUsername(e.target.value)} required autoFocus />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <input type="password" className="form-input" placeholder="Enter password" value={password} onChange={e => setPassword(e.target.value)} required />
+          </div>
+          <div className="alert alert-info" style={{ fontSize: 12, marginBottom: 14 }}>
+            💡 Default password for first login: <strong>Kaan@2026</strong>
+          </div>
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '10px' }} disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign In →'}
+          </button>
+        </form>
+        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 11, color: 'var(--text-muted)' }}>Kaan Group Trade Management v1.0</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────
+function Dashboard({ setPage }) {
+  const { entity } = useApp();
+  const [stats, setStats] = useState({ openOrders: 0, pendingInvoices: 0, overdueCount: 0, debtors: 0, creditors: 0 });
+  const [overdue, setOverdue] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { load(); }, [entity]);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const d = db(entity);
+      const tod = today();
+      const [r1, r2, r3, r4, r5] = await Promise.all([
+        d.from('customer_pos').select('*', { count: 'exact', head: true }).eq('entity', entity).in('status', ['received', 'confirmed', 'in_production']),
+        d.from('commercial_invoices').select('*', { count: 'exact', head: true }).eq('entity', entity).in('status', ['issued', 'partial_paid', 'overdue']),
+        d.from('osr_items').select('id,description,delivery_date,factory_name').eq('is_shipped', false).not('delivery_date', 'is', null).lt('delivery_date', tod).limit(8),
+        d.from('customers').select('opening_balance'),
+        d.from('factories').select('opening_balance').eq('entity', entity),
+      ]);
+      setStats({
+        openOrders: r1.count || 0,
+        pendingInvoices: r2.count || 0,
+        overdueCount: r3.data?.length || 0,
+        debtors: (r4.data || []).reduce((s, c) => s + (c.opening_balance || 0), 0),
+        creditors: (r5.data || []).reduce((s, f) => s + (f.opening_balance || 0), 0),
+      });
+      setOverdue(r3.data || []);
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  }
+
+  const SC = ({ label, val, sub, color }) => (
+    <div className="stat-card">
+      <div className="stat-label">{label}</div>
+      <div className="stat-val" style={{ color: color || 'var(--text-primary)' }}>{val}</div>
+      {sub && <div className="stat-sub">{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div>
+      {overdue.length > 0 && (
+        <div className="alert alert-warn">
+          ⚠️ <div><strong>{overdue.length} items</strong> have passed their delivery date.
+            <span style={{ marginLeft: 8, cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setPage('alerts')}>View all →</span>
+          </div>
+        </div>
+      )}
+      <div className="stat-grid">
+        <SC label="Open Orders" val={loading ? '...' : stats.openOrders} sub="In production or pending" color="var(--accent-light)" />
+        <SC label="Pending Invoices" val={loading ? '...' : stats.pendingInvoices} sub="Awaiting payment" color="var(--gold)" />
+        <SC label="Overdue Items" val={loading ? '...' : stats.overdueCount} sub="Past delivery date" color="var(--red)" />
+        <SC label="Total Debtors" val={loading ? '...' : fmtUSD(stats.debtors)} sub="Customers owe us" color="var(--green)" />
+        <SC label="Total Creditors" val={loading ? '...' : fmtUSD(stats.creditors)} sub="We owe factories" color="var(--orange)" />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div className="card">
+          <div className="sh"><div className="sh-title">Quick Actions</div></div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <button className="btn btn-primary btn-sm" onClick={() => setPage('customer-orders')}>+ Customer Order</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setPage('invoices')}>+ Invoice</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setPage('payments')}>+ Payment</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setPage('osr')}>📋 Update OSR</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setPage('pl')}>📈 P&amp;L Report</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setPage('ledger')}>📒 Ledger</button>
+          </div>
+        </div>
+        <div className="card">
+          <div className="sh">
+            <div className="sh-title" style={{ color: 'var(--gold)' }}>⚠️ Overdue Deliveries</div>
+            <button className="btn btn-ghost btn-sm" onClick={() => setPage('alerts')}>View all</button>
+          </div>
+          {overdue.length === 0
+            ? <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>✓ No overdue items</div>
+            : overdue.slice(0, 4).map((item, i) => (
+              <div key={i} style={{ padding: '7px 10px', background: 'rgba(239,68,68,0.06)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.15)', marginBottom: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)' }}>{item.description}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Due: {fmtDate(item.delivery_date)}</div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CUSTOMER ORDERS ─────────────────────────────────────────
+function CustomerOrders() {
+  const { entity } = useApp();
+  const [orders, setOrders] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => { load(); }, [entity]);
+
+  async function load() {
+    setLoading(true);
+    const d = db(entity);
+    const [r1, r2] = await Promise.all([
+      d.from('customer_pos').select('*, customers(name,code)').eq('entity', entity).order('created_at', { ascending: false }).limit(200),
+      d.from('customers').select('id,name,code').order('name'),
+    ]);
+    setOrders(r1.data || []);
+    setCustomers(r2.data || []);
+    setLoading(false);
+  }
+
+  const STATUS_CLS = { received: 'bb', confirmed: 'bb', in_production: 'by', partially_shipped: 'bo', shipped: 'bg', completed: 'bgr', cancelled: 'br' };
+  const filtered = orders.filter(o => !search || o.po_number?.toLowerCase().includes(search.toLowerCase()) || o.kaan_ref?.toLowerCase().includes(search.toLowerCase()) || o.customers?.name?.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div>
+      <div className="card">
+        <div style={{ display: 'flex', gap: 10 }}>
+          <input className="form-input" style={{ flex: 1 }} placeholder="Search PO number, KAAN ref, customer..." value={search} onChange={e => setSearch(e.target.value)} />
+          <button className="btn btn-primary" onClick={() => setShowNew(true)}>+ New Order</button>
+        </div>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>PO Number</th><th>KAAN Ref</th><th>Customer</th><th>PO Date</th><th>Delivery</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={7}><div className="empty">Loading...</div></td></tr>
+              : filtered.length === 0 ? <tr><td colSpan={7}><div className="empty">No orders found. <button className="btn btn-primary btn-sm" onClick={() => setShowNew(true)}>Create first order</button></div></td></tr>
+              : filtered.map(o => (
+                <tr key={o.id}>
+                  <td className="td-p td-mono">{o.po_number}</td>
+                  <td className="td-mono" style={{ color: 'var(--accent-light)' }}>{o.kaan_ref || '—'}</td>
+                  <td className="td-p">{o.customers?.name || '—'}</td>
+                  <td>{fmtDate(o.po_date)}</td>
+                  <td>{fmtDate(o.requested_delivery_date)}</td>
+                  <td className="td-amt">{o.total_amount ? fmtUSD(o.total_amount) : '—'}</td>
+                  <td><span className={`badge ${STATUS_CLS[o.status] || 'bgr'}`}>{o.status?.replace(/_/g, ' ')}</span></td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+      {showNew && <NewOrderModal customers={customers} entity={entity} onClose={() => setShowNew(false)} onSaved={load} />}
+    </div>
+  );
+}
+
+function NewOrderModal({ customers, entity, onClose, onSaved }) {
+  const [form, setForm] = useState({ po_number: '', kaan_ref: '', customer_id: '', po_date: today(), requested_delivery_date: '', shipping_terms: 'FOB SHANGHAI', payment_terms: '60 days from date of shipment', port_of_destination: '', notes: '', status: 'received' });
+  const [items, setItems] = useState([{ description: '', customer_item_code: '', kaan_code: '', color: '', quantity: '', unit_price: '' }]);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  function upItem(i, f, v) { setItems(p => p.map((item, idx) => idx === i ? { ...item, [f]: v } : item)); }
+  const total = items.reduce((s, i) => s + ((+i.quantity || 0) * (+i.unit_price || 0)), 0);
+
+  async function save() {
+    if (!form.po_number || !form.customer_id) { setErr('PO number and customer are required'); return; }
+    setSaving(true);
+    const d = db(entity);
+    const { data: po, error } = await d.from('customer_pos').insert({ ...form, entity, total_amount: total || null }).select().single();
+    if (error) { setErr(error.message); setSaving(false); return; }
+    const lineItems = items.filter(i => i.description).map((item, idx) => ({ customer_po_id: po.id, line_no: idx + 1, ...item, quantity: +item.quantity || 0, unit_price: +item.unit_price || 0 }));
+    if (lineItems.length) await d.from('customer_po_items').insert(lineItems);
+    onSaved(); onClose();
+    setSaving(false);
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal modal-lg">
+        <div className="modal-hdr"><div className="modal-title">New Customer Order</div><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+        {err && <div className="alert alert-err">{err}</div>}
+        <div className="grid2">
+          <div className="form-group"><label className="form-label">Customer PO Number *</label><input className="form-input" value={form.po_number} onChange={e => setForm({ ...form, po_number: e.target.value })} placeholder="e.g. 4500046861" /></div>
+          <div className="form-group"><label className="form-label">KAAN Reference</label><input className="form-input" value={form.kaan_ref} onChange={e => setForm({ ...form, kaan_ref: e.target.value })} placeholder="e.g. KAAN 1324" /></div>
+          <div className="form-group"><label className="form-label">Customer *</label>
+            <select className="form-input" value={form.customer_id} onChange={e => setForm({ ...form, customer_id: e.target.value })}>
+              <option value="">Select customer...</option>
+              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="form-group"><label className="form-label">PO Date</label><input type="date" className="form-input" value={form.po_date} onChange={e => setForm({ ...form, po_date: e.target.value })} /></div>
+          <div className="form-group"><label className="form-label">Requested Delivery Date</label><input type="date" className="form-input" value={form.requested_delivery_date} onChange={e => setForm({ ...form, requested_delivery_date: e.target.value })} /></div>
+          <div className="form-group"><label className="form-label">Payment Terms</label><input className="form-input" value={form.payment_terms} onChange={e => setForm({ ...form, payment_terms: e.target.value })} /></div>
+          <div className="form-group"><label className="form-label">Shipping Terms</label>
+            <select className="form-input" value={form.shipping_terms} onChange={e => setForm({ ...form, shipping_terms: e.target.value })}>
+              <option>FOB SHANGHAI</option><option>FOB NINGBO</option><option>CIF</option><option>CFR</option>
+            </select>
+          </div>
+          <div className="form-group"><label className="form-label">Port of Destination</label><input className="form-input" value={form.port_of_destination} onChange={e => setForm({ ...form, port_of_destination: e.target.value })} placeholder="e.g. MANZANILLO, MEXICO" /></div>
+        </div>
+        <div className="sh" style={{ marginTop: 8 }}>
+          <div className="sh-title">Order Items</div>
+          <button className="btn btn-secondary btn-sm" onClick={() => setItems(p => [...p, { description: '', customer_item_code: '', kaan_code: '', color: '', quantity: '', unit_price: '' }])}>+ Add Item</button>
+        </div>
+        <div className="table-wrap" style={{ marginBottom: 14 }}>
+          <table>
+            <thead><tr><th>#</th><th>Customer Code</th><th>KAAN Code</th><th>Description</th><th>Color</th><th>Qty (m)</th><th>Unit Price</th><th>Amount</th><th></th></tr></thead>
+            <tbody>
+              {items.map((item, i) => (
+                <tr key={i}>
+                  <td style={{ color: 'var(--text-muted)', fontSize: 11 }}>{i + 1}</td>
+                  {['customer_item_code', 'kaan_code', 'description', 'color'].map(f => (
+                    <td key={f}><input className="form-input" style={{ fontSize: 12, padding: '4px 7px' }} value={item[f]} onChange={e => upItem(i, f, e.target.value)} /></td>
+                  ))}
+                  <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 75 }} value={item.quantity} onChange={e => upItem(i, 'quantity', e.target.value)} /></td>
+                  <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 80 }} value={item.unit_price} onChange={e => upItem(i, 'unit_price', e.target.value)} step="0.0001" /></td>
+                  <td className="td-amt" style={{ fontSize: 12 }}>{fmt((+item.quantity || 0) * (+item.unit_price || 0))}</td>
+                  <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setItems(p => p.filter((_, idx) => idx !== i))}>✕</button></td>
+                </tr>
+              ))}
+              <tr><td colSpan={7} style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)', padding: '9px 13px' }}>TOTAL:</td><td className="td-amt" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{fmtUSD(total)}</td><td /></tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="form-group"><label className="form-label">Notes</label><textarea className="form-input" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} /></div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save Order →'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── OSR ─────────────────────────────────────────────────────
+function OSR() {
+  const { entity } = useApp();
+  const [customers, setCustomers] = useState([]);
+  const [custId, setCustId] = useState('');
+  const [items, setItems] = useState([]);
+  const [shipped, setShipped] = useState([]);
+  const [tab, setTab] = useState('open');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    db(entity).from('customers').select('id,name').order('name').then(r => {
+      setCustomers(r.data || []);
+      if (r.data?.length) setCustId(r.data[0].id);
+    });
+  }, [entity]);
+
+  useEffect(() => { if (custId) loadItems(); }, [custId]);
+
+  async function loadItems() {
+    setLoading(true);
+    const d = db(entity);
+    const tod = today();
+    const [r1, r2] = await Promise.all([
+      d.from('osr_items').select('*, factories(short_name), customer_pos(kaan_ref)').eq('is_shipped', false).order('delivery_date'),
+      d.from('osr_items').select('*, factories(short_name)').eq('is_shipped', true).order('shipped_date', { ascending: false }).limit(100),
+    ]);
+    setItems(r1.data || []);
+    setShipped(r2.data || []);
+    setLoading(false);
+  }
+
+  async function toggleStar(item) {
+    await db(entity).from('osr_items').update({ selected_for_next_shipment: !item.selected_for_next_shipment }).eq('id', item.id);
+    setItems(p => p.map(i => i.id === item.id ? { ...i, selected_for_next_shipment: !i.selected_for_next_shipment } : i));
+  }
+
+  async function updateField(item, field, val) {
+    await db(entity).from('osr_items').update({ [field]: val }).eq('id', item.id);
+    setItems(p => p.map(i => i.id === item.id ? { ...i, [field]: val } : i));
+  }
+
+  async function markShipped(item) {
+    if (!confirm(`Mark "${item.description}" as shipped?`)) return;
+    await db(entity).from('osr_items').update({ is_shipped: true, shipped_date: today(), status: 'shipped' }).eq('id', item.id);
+    loadItems();
+  }
+
+  const tod = today();
+  const selectedCount = items.filter(i => i.selected_for_next_shipment).length;
+
+  return (
+    <div>
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label className="form-label" style={{ margin: 0 }}>Customer:</label>
+            <select className="form-input" style={{ width: 280 }} value={custId} onChange={e => setCustId(e.target.value)}>
+              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          {selectedCount > 0 && <span className="badge by" style={{ padding: '5px 12px' }}>★ {selectedCount} selected for next shipment</span>}
+        </div>
+      </div>
+      <div className="tabs">
+        <button className={`tab ${tab === 'open' ? 'active' : ''}`} onClick={() => setTab('open')}>Open Orders ({items.length})</button>
+        <button className={`tab ${tab === 'shipped' ? 'active' : ''}`} onClick={() => setTab('shipped')}>Shipped ({shipped.length})</button>
+      </div>
+      {loading ? <div className="empty">Loading...</div> : tab === 'open' ? (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>★</th><th>Order Ref</th><th>Item Code</th><th>Description</th><th>Ordered</th><th>Shipped</th><th>Balance</th><th>Factory</th><th>Delivery Date</th><th>Updated Date</th><th>Status</th><th>Comments</th><th>Action</th></tr></thead>
+            <tbody>
+              {items.length === 0
+                ? <tr><td colSpan={13}><div className="empty">No open OSR items</div></td></tr>
+                : items.map(item => {
+                  const overdue = item.delivery_date && item.delivery_date < tod && !item.updated_delivery_date;
+                  return (
+                    <tr key={item.id} style={{ background: item.selected_for_next_shipment ? 'rgba(59,130,246,0.06)' : undefined, borderLeft: overdue ? '2px solid var(--red)' : undefined }}>
+                      <td><button className="star-btn" onClick={() => toggleStar(item)} style={{ color: item.selected_for_next_shipment ? '#f59e0b' : 'var(--text-muted)' }}>★</button></td>
+                      <td className="td-mono" style={{ fontSize: 10 }}>{item.customer_pos?.kaan_ref || '—'}</td>
+                      <td className="td-mono" style={{ fontSize: 10 }}>{item.customer_item_code || '—'}</td>
+                      <td className="td-p" style={{ maxWidth: 180 }}>
+                        {item.description}
+                        {overdue && <span className="badge br" style={{ marginLeft: 6, fontSize: 10 }}>OVERDUE</span>}
+                      </td>
+                      <td className="td-amt">{fmt(item.ordered_qty || 0, 0)}</td>
+                      <td className="td-amt">{fmt(item.shipped_qty || 0, 0)}</td>
+                      <td className="td-amt" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(item.balance_qty || 0, 0)}</td>
+                      <td style={{ fontSize: 11 }}>{item.factories?.short_name || item.factory_name || '—'}</td>
+                      <td style={{ fontSize: 11, color: overdue ? 'var(--red)' : undefined }}>{fmtDate(item.delivery_date)}</td>
+                      <td><input type="date" className="form-input" style={{ fontSize: 11, padding: '3px 6px', width: 130 }} value={item.updated_delivery_date || ''} onChange={e => updateField(item, 'updated_delivery_date', e.target.value)} /></td>
+                      <td>
+                        <select className="form-input" style={{ fontSize: 11, padding: '3px 6px', width: 120 }} value={item.status} onChange={e => updateField(item, 'status', e.target.value)}>
+                          <option value="pending">Pending</option><option value="in_production">In Production</option><option value="ready">Ready</option><option value="color_confirmed">Color Confirmed</option><option value="color_rejected">Color Rejected</option><option value="cancelled">Cancelled</option>
+                        </select>
+                      </td>
+                      <td><input className="form-input" style={{ fontSize: 11, padding: '3px 6px', width: 140 }} value={item.comments || ''} onChange={e => updateField(item, 'comments', e.target.value)} placeholder="Comments..." /></td>
+                      <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--green)', fontSize: 11 }} onClick={() => markShipped(item)}>✓ Ship</button></td>
+                    </tr>
+                  );
+                })
+              }
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Order Ref</th><th>Description</th><th>Qty Shipped</th><th>Factory</th><th>Shipped Date</th></tr></thead>
+            <tbody>
+              {shipped.map(item => (
+                <tr key={item.id}>
+                  <td className="td-mono">{item.customer_pos?.kaan_ref || '—'}</td>
+                  <td className="td-p">{item.description}</td>
+                  <td className="td-amt">{fmt(item.shipped_qty || item.ordered_qty || 0, 0)} mts</td>
+                  <td>{item.factories?.short_name || '—'}</td>
+                  <td>{fmtDate(item.shipped_date)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── PAYMENTS ────────────────────────────────────────────────
+function Payments() {
+  const { entity } = useApp();
+  const [tab, setTab] = useState('customer');
+  const [cp, setCp] = useState([]);
+  const [fp, setFp] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [factories, setFactories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+
+  useEffect(() => { load(); }, [entity]);
+
+  async function load() {
+    setLoading(true);
+    const d = db(entity);
+    const [r1, r2, r3, r4] = await Promise.all([
+      d.from('customer_payments').select('*, customers(name)').eq('entity', entity).order('payment_date', { ascending: false }).limit(100),
+      d.from('factory_payments').select('*, factories(name,short_name)').eq('entity', entity).order('created_at', { ascending: false }).limit(100),
+      d.from('customers').select('id,name').order('name'),
+      d.from('factories').select('id,name,short_name').order('name'),
+    ]);
+    setCp(r1.data || []); setFp(r2.data || []); setCustomers(r3.data || []); setFactories(r4.data || []);
+    setLoading(false);
+  }
+
+  async function approvePay(p) {
+    await db(entity).from('factory_payments').update({ paid: true, payment_date: today() }).eq('id', p.id);
+    load();
+  }
+
+  const totalRcvd = cp.reduce((s, p) => s + (p.amount || 0), 0);
+  const totalPaid = fp.filter(p => p.paid).reduce((s, p) => s + (p.amount || 0), 0);
+  const totalPending = fp.filter(p => !p.paid).reduce((s, p) => s + (p.amount || 0), 0);
+
+  return (
+    <div>
+      <div className="stat-grid">
+        <div className="stat-card"><div className="stat-label">Customer Receipts</div><div className="stat-val" style={{ color: 'var(--green)', fontSize: 18 }}>{fmtUSD(totalRcvd)}</div><div className="stat-sub">{cp.length} payments</div></div>
+        <div className="stat-card"><div className="stat-label">Factory Payments Made</div><div className="stat-val" style={{ color: 'var(--accent-light)', fontSize: 18 }}>{fmtUSD(totalPaid)}</div></div>
+        <div className="stat-card"><div className="stat-label">Factory Payments Pending</div><div className="stat-val" style={{ color: 'var(--gold)', fontSize: 18 }}>{fmtUSD(totalPending)}</div><div className="stat-sub">{fp.filter(p => !p.paid).length} pending</div></div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="tabs" style={{ marginBottom: 0, flex: 1, marginRight: 12 }}>
+          <button className={`tab ${tab === 'customer' ? 'active' : ''}`} onClick={() => setTab('customer')}>Customer Receipts ({cp.length})</button>
+          <button className={`tab ${tab === 'factory' ? 'active' : ''}`} onClick={() => setTab('factory')}>Factory Payments ({fp.length})</button>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={() => setShowNew(true)}>+ Record Payment</button>
+      </div>
+      {loading ? <div className="empty">Loading...</div> : (
+        <div className="table-wrap">
+          {tab === 'customer' ? (
+            <table>
+              <thead><tr><th>Ref</th><th>Customer</th><th>Date</th><th>Amount</th><th>Type</th><th>Bank</th><th>Discount?</th><th>Notes</th></tr></thead>
+              <tbody>
+                {cp.map(p => (
+                  <tr key={p.id}>
+                    <td className="td-mono" style={{ fontSize: 10 }}>{p.payment_ref}</td>
+                    <td className="td-p">{p.customers?.name}</td>
+                    <td>{fmtDate(p.payment_date)}</td>
+                    <td className="td-amt" style={{ color: 'var(--green)', fontWeight: 600 }}>{fmtUSD(p.amount)}</td>
+                    <td><span className="badge bb">{p.payment_type}</span></td>
+                    <td style={{ fontSize: 11 }}>{p.bank_account || '—'}</td>
+                    <td>{p.qualifies_for_discount ? <span className="badge bg">1% — {fmtUSD(p.discount_amount)}</span> : '—'}</td>
+                    <td style={{ fontSize: 11 }}>{p.notes || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <table>
+              <thead><tr><th>Factory</th><th>Invoice No.</th><th>Invoice Amt</th><th>Deposit Deducted</th><th>Net Payment</th><th>Via</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody>
+                {fp.map(p => (
+                  <tr key={p.id} style={{ opacity: p.paid ? 0.6 : 1 }}>
+                    <td className="td-p">{p.factories?.short_name || p.factories?.name}</td>
+                    <td className="td-mono" style={{ fontSize: 10 }}>{p.factory_invoice_no || '—'}</td>
+                    <td className="td-amt">{p.invoice_amount ? fmtUSD(p.invoice_amount) : '—'}</td>
+                    <td className="td-amt" style={{ color: 'var(--green)' }}>{p.deposit_deducted > 0 ? `(${fmtUSD(p.deposit_deducted)})` : '—'}</td>
+                    <td className="td-amt" style={{ fontWeight: 700, color: 'var(--accent-light)' }}>{fmtUSD(p.amount)}</td>
+                    <td><span className={`badge ${p.via === 'AIR' ? 'bo' : 'bb'}`}>{p.via || 'SEA'}</span></td>
+                    <td>{fmtDate(p.payment_date)}</td>
+                    <td><span className={`badge ${p.paid ? 'bg' : 'by'}`}>{p.paid ? '✓ Paid' : 'Pending'}</span></td>
+                    <td>{!p.paid && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--green)', fontSize: 11 }} onClick={() => approvePay(p)}>✓ Approve</button>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+      {showNew && <NewPaymentModal tab={tab} customers={customers} factories={factories} entity={entity} onClose={() => setShowNew(false)} onSaved={load} />}
+    </div>
+  );
+}
+
+function NewPaymentModal({ tab, customers, factories, entity, onClose, onSaved }) {
+  const [type, setType] = useState(tab);
+  const [form, setForm] = useState({ customer_id: '', factory_id: '', payment_date: today(), amount: '', invoice_amount: '', deposit_deducted: '0', payment_type: 'wire', via: 'SEA', bank_account: 'OCBC HK USD-831', reference: '', sailing_date: '', factory_invoice_no: '', ranking: '', notes: '' });
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!form.amount) return;
+    setSaving(true);
+    const d = db(entity);
+    const ref = `KAAN${type === 'customer' ? 'RCPT' : 'PYMT'}${Date.now()}`;
+    if (type === 'customer') {
+      let days = null, qualifies = false, discAmt = 0;
+      if (form.sailing_date) {
+        days = Math.floor((new Date(form.payment_date) - new Date(form.sailing_date)) / 86400000);
+        if (days <= 45) { qualifies = true; discAmt = +form.amount * 0.01; }
+      }
+      await d.from('customer_payments').insert({ payment_ref: ref, customer_id: form.customer_id, entity, payment_date: form.payment_date, amount: +form.amount, payment_type: form.payment_type, bank_account: form.bank_account, reference: form.reference, sailing_date: form.sailing_date || null, days_from_sailing: days, qualifies_for_discount: qualifies, discount_pct: qualifies ? 1 : 0, discount_amount: discAmt, notes: form.notes });
+    } else {
+      await d.from('factory_payments').insert({ payment_ref: ref, factory_id: form.factory_id, entity, payment_date: form.payment_date, invoice_amount: +form.invoice_amount || null, deposit_deducted: +form.deposit_deducted || 0, amount: +form.amount, payment_type: form.payment_type, via: form.via, bank_account: form.bank_account, reference: form.reference, factory_invoice_no: form.factory_invoice_no, paid: false, ranking: form.ranking });
+    }
+    onSaved(); onClose(); setSaving(false);
+  }
+
+  const F = ({ label, children }) => <div className="form-group"><label className="form-label">{label}</label>{children}</div>;
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-hdr"><div className="modal-title">Record Payment</div><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+        <div className="tabs">
+          <button className={`tab ${type === 'customer' ? 'active' : ''}`} onClick={() => setType('customer')}>Customer Receipt</button>
+          <button className={`tab ${type === 'factory' ? 'active' : ''}`} onClick={() => setType('factory')}>Factory Payment</button>
+        </div>
+        <div className="grid2">
+          {type === 'customer'
+            ? <F label="Customer *"><select className="form-input" value={form.customer_id} onChange={e => setForm({ ...form, customer_id: e.target.value })}><option value="">Select...</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></F>
+            : <F label="Factory *"><select className="form-input" value={form.factory_id} onChange={e => setForm({ ...form, factory_id: e.target.value })}><option value="">Select...</option>{factories.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select></F>
+          }
+          <F label="Payment Date *"><input type="date" className="form-input" value={form.payment_date} onChange={e => setForm({ ...form, payment_date: e.target.value })} /></F>
+          <F label="Amount (USD) *"><input type="number" className="form-input" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} step="0.01" /></F>
+          {type === 'factory' && <>
+            <F label="Factory Invoice No."><input className="form-input" value={form.factory_invoice_no} onChange={e => setForm({ ...form, factory_invoice_no: e.target.value })} /></F>
+            <F label="Invoice Amount"><input type="number" className="form-input" value={form.invoice_amount} onChange={e => setForm({ ...form, invoice_amount: e.target.value })} step="0.01" /></F>
+            <F label="Deposit Deducted"><input type="number" className="form-input" value={form.deposit_deducted} onChange={e => setForm({ ...form, deposit_deducted: e.target.value })} step="0.01" /></F>
+            <F label="Via"><select className="form-input" value={form.via} onChange={e => setForm({ ...form, via: e.target.value })}><option>SEA</option><option>AIR</option></select></F>
+            <F label="Priority Ranking"><input className="form-input" value={form.ranking} onChange={e => setForm({ ...form, ranking: e.target.value })} placeholder="1, 2, 3..." /></F>
+          </>}
+          {type === 'customer' && <F label="Sailing Date (for 1% discount check)"><input type="date" className="form-input" value={form.sailing_date} onChange={e => setForm({ ...form, sailing_date: e.target.value })} /></F>}
+          <F label="Bank Account"><select className="form-input" value={form.bank_account} onChange={e => setForm({ ...form, bank_account: e.target.value })}><option>OCBC HK USD-831</option><option>OCBC HK USD C/A</option><option>OCBC SG USD</option></select></F>
+          <F label="TT Reference"><input className="form-input" value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} /></F>
+        </div>
+        {type === 'customer' && form.sailing_date && <div className="alert alert-info" style={{ fontSize: 12 }}>💡 If payment ≤ 45 days from sailing, 1% early payment discount is auto-calculated.</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save →'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── P&L ─────────────────────────────────────────────────────
+function PLReport() {
+  const { entity } = useApp();
+  const [year, setYear] = useState(2024);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { load(); }, [entity, year]);
+
+  async function load() {
+    setLoading(true);
+    const d = db(entity);
+    const from = `${year}-01-01`, to = `${year}-12-31`;
+    const [r1, r2, r3] = await Promise.all([
+      d.from('commercial_invoices').select('total_amount').eq('entity', entity).eq('invoice_type', 'actual').gte('invoice_date', from).lte('invoice_date', to),
+      d.from('factory_payments').select('invoice_amount, amount').eq('entity', entity).eq('paid', true).gte('payment_date', from).lte('payment_date', to),
+      d.from('office_expenses').select('amount, category').eq('entity', entity).gte('expense_date', from).lte('expense_date', to),
+    ]);
+    const sales = (r1.data || []).reduce((s, i) => s + (i.total_amount || 0), 0);
+    const purchases = (r2.data || []).reduce((s, p) => s + (p.invoice_amount || p.amount || 0), 0);
+    const gross = sales - purchases;
+    const expCats = {};
+    (r3.data || []).forEach(e => { expCats[e.category] = (expCats[e.category] || 0) + (e.amount || 0); });
+    const totalExp = (r3.data || []).reduce((s, e) => s + (e.amount || 0), 0);
+    setData({ sales, purchases, gross, grossPct: sales > 0 ? (gross / sales * 100) : 0, expCats, totalExp, net: gross - totalExp });
+    setLoading(false);
+  }
+
+  const Row = ({ label, val, indent, bold, color }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', paddingLeft: indent ? 20 : 0, borderTop: bold ? '1px solid var(--border)' : undefined }}>
+      <span style={{ fontSize: bold ? 14 : 13, fontWeight: bold ? 600 : 400, color: bold ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{label}</span>
+      <span style={{ fontFamily: 'DM Mono, monospace', fontSize: bold ? 15 : 13, fontWeight: bold ? 700 : 400, color: color || (bold ? 'var(--text-primary)' : 'var(--text-secondary)') }}>{fmtUSD(val)}</span>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
+        <label className="form-label" style={{ margin: 0 }}>Financial Year:</label>
+        <select className="form-input" style={{ width: 110 }} value={year} onChange={e => setYear(+e.target.value)}>
+          {[2024, 2025, 2026].map(y => <option key={y}>{y}</option>)}
+        </select>
+      </div>
+      {loading ? <div className="empty">Calculating...</div> : data && (
+        <div className="card" style={{ maxWidth: 680 }}>
+          <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>Profit & Loss Account</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 22 }}>1 Jan {year} — 31 Dec {year} · {CONFIGS[entity].name}</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>INCOME</div>
+          <Row label="Sales Revenue" val={data.sales} bold />
+          <div className="divider" />
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>COST OF GOODS SOLD</div>
+          <Row label="Purchases" val={data.purchases} indent />
+          <div className="divider" />
+          <Row label="Gross Profit" val={data.gross} bold color={data.gross >= 0 ? 'var(--green)' : 'var(--red)'} />
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>Gross Margin: {data.grossPct.toFixed(1)}%</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>INDIRECT EXPENSES</div>
+          {Object.entries(data.expCats).map(([cat, amt]) => <Row key={cat} label={cat.replace(/_/g, ' ')} val={amt} indent />)}
+          {Object.keys(data.expCats).length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, padding: '8px 0 8px 20px' }}>No expenses recorded yet</div>}
+          <div className="divider" />
+          <Row label="Net Profit" val={data.net} bold color={data.net >= 0 ? 'var(--green)' : 'var(--red)'} />
+          {year === 2024 && <div className="alert alert-info" style={{ marginTop: 16, fontSize: 12 }}>📊 Actual 2024 Net Profit: $641,720.84 — variance = transactions not yet entered in system.</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── LEDGER ──────────────────────────────────────────────────
+function Ledger() {
+  const { entity } = useApp();
+  const [tab, setTab] = useState('debtors');
+  const [debtors, setDebtors] = useState([]);
+  const [creditors, setCreditors] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { load(); }, [entity]);
+
+  async function load() {
+    setLoading(true);
+    const d = db(entity);
+    const [rc, rf] = await Promise.all([
+      d.from('customers').select('id,name,country,opening_balance,code').order('name'),
+      d.from('factories').select('id,name,short_name,code,opening_balance').eq('entity', entity).order('name'),
+    ]);
+
+    const debData = await Promise.all((rc.data || []).map(async c => {
+      const [r1, r2, r3] = await Promise.all([
+        d.from('commercial_invoices').select('total_amount').eq('customer_id', c.id).eq('invoice_type', 'actual').neq('status', 'cancelled'),
+        d.from('customer_payments').select('amount').eq('customer_id', c.id),
+        d.from('credit_notes').select('amount').eq('customer_id', c.id),
+      ]);
+      const sales = (r1.data || []).reduce((s, i) => s + (i.total_amount || 0), 0);
+      const paid = (r2.data || []).reduce((s, p) => s + (p.amount || 0), 0);
+      const cn = (r3.data || []).reduce((s, n) => s + (n.amount || 0), 0);
+      const closing = (c.opening_balance || 0) + sales - paid - cn;
+      return { ...c, sales, paid, cn, closing };
+    }));
+
+    const credData = await Promise.all((rf.data || []).map(async f => {
+      const [r1, r2] = await Promise.all([
+        d.from('factory_payments').select('invoice_amount, amount, paid').eq('factory_id', f.id),
+        d.from('factory_credit_notes').select('amount').eq('factory_id', f.id),
+      ]);
+      const purchases = (r1.data || []).reduce((s, p) => s + (p.invoice_amount || 0), 0);
+      const paid = (r1.data || []).filter(p => p.paid).reduce((s, p) => s + (p.amount || 0), 0);
+      const cn = (r2.data || []).reduce((s, n) => s + (n.amount || 0), 0);
+      const closing = (f.opening_balance || 0) + purchases - paid - cn;
+      return { ...f, purchases, paid, cn, closing };
+    }));
+
+    setDebtors(debData.filter(d => Math.abs(d.closing) > 0.01 || d.sales > 0));
+    setCreditors(credData.filter(c => Math.abs(c.closing) > 0.01 || c.purchases > 0));
+    setLoading(false);
+  }
+
+  const totDeb = debtors.reduce((s, d) => s + d.closing, 0);
+  const totCred = creditors.reduce((s, c) => s + c.closing, 0);
+
+  return (
+    <div>
+      <div className="stat-grid">
+        <div className="stat-card"><div className="stat-label">Total Debtors</div><div className="stat-val" style={{ color: 'var(--green)', fontSize: 18 }}>{fmtUSD(totDeb)}</div><div className="stat-sub">Customers owe us</div></div>
+        <div className="stat-card"><div className="stat-label">Total Creditors</div><div className="stat-val" style={{ color: 'var(--red)', fontSize: 18 }}>{fmtUSD(totCred)}</div><div className="stat-sub">We owe factories</div></div>
+        <div className="stat-card"><div className="stat-label">Net Position</div><div className="stat-val" style={{ color: totDeb - totCred >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 18 }}>{fmtUSD(totDeb - totCred)}</div></div>
+      </div>
+      <div className="tabs">
+        <button className={`tab ${tab === 'debtors' ? 'active' : ''}`} onClick={() => setTab('debtors')}>Debtors ({debtors.length})</button>
+        <button className={`tab ${tab === 'creditors' ? 'active' : ''}`} onClick={() => setTab('creditors')}>Creditors ({creditors.length})</button>
+      </div>
+      {loading ? <div className="empty">Calculating ledger...</div> : (
+        <div className="table-wrap">
+          {tab === 'debtors' ? (
+            <table>
+              <thead><tr><th>Customer</th><th>Country</th><th>Opening Bal.</th><th>Sales</th><th>Payments</th><th>Credit Notes</th><th>Closing Bal.</th></tr></thead>
+              <tbody>
+                {debtors.map(d => (
+                  <tr key={d.id}>
+                    <td className="td-p">{d.name}</td>
+                    <td style={{ fontSize: 12 }}>{d.country}</td>
+                    <td className="td-amt">{fmtUSD(d.opening_balance)}</td>
+                    <td className="td-amt">{fmtUSD(d.sales)}</td>
+                    <td className="td-amt" style={{ color: 'var(--green)' }}>({fmtUSD(d.paid)})</td>
+                    <td className="td-amt" style={{ color: 'var(--orange)' }}>{d.cn > 0 ? `(${fmtUSD(d.cn)})` : '—'}</td>
+                    <td className="td-amt" style={{ fontWeight: 700, color: d.closing > 0 ? 'var(--text-primary)' : 'var(--green)' }}>{fmtUSD(d.closing)}</td>
+                  </tr>
+                ))}
+                <tr style={{ borderTop: '2px solid var(--border)' }}>
+                  <td colSpan={6} style={{ fontWeight: 700, color: 'var(--text-primary)', padding: '11px 13px' }}>TOTAL DEBTORS</td>
+                  <td className="td-amt" style={{ fontWeight: 700, color: 'var(--green)', fontSize: 14 }}>{fmtUSD(totDeb)}</td>
+                </tr>
+              </tbody>
+            </table>
+          ) : (
+            <table>
+              <thead><tr><th>Factory / Supplier</th><th>Code</th><th>Opening Bal.</th><th>Purchases</th><th>Payments</th><th>Credit Notes</th><th>Closing Bal.</th></tr></thead>
+              <tbody>
+                {creditors.map(c => (
+                  <tr key={c.id}>
+                    <td className="td-p">{c.name}</td>
+                    <td className="td-mono">{c.code}</td>
+                    <td className="td-amt">{fmtUSD(c.opening_balance)}</td>
+                    <td className="td-amt">{fmtUSD(c.purchases)}</td>
+                    <td className="td-amt" style={{ color: 'var(--green)' }}>({fmtUSD(c.paid)})</td>
+                    <td className="td-amt" style={{ color: 'var(--orange)' }}>{c.cn > 0 ? `(${fmtUSD(c.cn)})` : '—'}</td>
+                    <td className="td-amt" style={{ fontWeight: 700, color: c.closing > 0 ? 'var(--red)' : 'var(--green)' }}>{fmtUSD(c.closing)}</td>
+                  </tr>
+                ))}
+                <tr style={{ borderTop: '2px solid var(--border)' }}>
+                  <td colSpan={6} style={{ fontWeight: 700, color: 'var(--text-primary)', padding: '11px 13px' }}>TOTAL CREDITORS</td>
+                  <td className="td-amt" style={{ fontWeight: 700, color: 'var(--red)', fontSize: 14 }}>{fmtUSD(totCred)}</td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ALERTS ──────────────────────────────────────────────────
+function Alerts() {
+  const { entity } = useApp();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [newDates, setNewDates] = useState({});
+
+  useEffect(() => { load(); }, [entity]);
+
+  async function load() {
+    setLoading(true);
+    const { data } = await db(entity).from('osr_items').select('*, factories(name,short_name,contact_email), customer_pos(kaan_ref, customers(name))').eq('is_shipped', false).not('delivery_date', 'is', null).lt('delivery_date', today()).is('updated_delivery_date', null).order('delivery_date');
+    setItems(data || []);
+    setLoading(false);
+  }
+
+  async function update(item) {
+    if (!newDates[item.id]) return;
+    await db(entity).from('osr_items').update({ updated_delivery_date: newDates[item.id] }).eq('id', item.id);
+    setItems(p => p.filter(i => i.id !== item.id));
+  }
+
+  const daysOver = d => Math.floor((new Date() - new Date(d)) / 86400000);
+
+  return (
+    <div>
+      {loading ? <div className="empty">Loading...</div> : items.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: 60 }}>
+          <div style={{ fontSize: 36, marginBottom: 14 }}>✅</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--green)', marginBottom: 8 }}>No Overdue Deliveries</div>
+          <div style={{ color: 'var(--text-muted)' }}>All items are within their delivery dates</div>
+        </div>
+      ) : (
+        <>
+          <div className="alert alert-warn">⚠️ <strong>{items.length} items</strong> are past their delivery date with no updated date.</div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>KAAN Order</th><th>Customer</th><th>Description</th><th>Factory</th><th>Original Delivery</th><th>Days Overdue</th><th>Balance Qty</th><th>Update Delivery Date</th></tr></thead>
+              <tbody>
+                {items.map(item => (
+                  <tr key={item.id} style={{ background: daysOver(item.delivery_date) > 14 ? 'rgba(239,68,68,0.04)' : undefined }}>
+                    <td className="td-mono" style={{ fontSize: 10 }}>{item.customer_pos?.kaan_ref || '—'}</td>
+                    <td style={{ fontSize: 12 }}>{item.customer_pos?.customers?.name || '—'}</td>
+                    <td className="td-p" style={{ maxWidth: 180 }}>{item.description}</td>
+                    <td style={{ fontSize: 12 }}>{item.factories?.short_name || item.factory_name || '—'}</td>
+                    <td style={{ color: 'var(--red)', fontSize: 12 }}>{fmtDate(item.delivery_date)}</td>
+                    <td><span className={`badge ${daysOver(item.delivery_date) > 14 ? 'br' : 'bo'}`}>{daysOver(item.delivery_date)} days</span></td>
+                    <td className="td-amt">{item.balance_qty ? `${fmt(item.balance_qty, 0)} mts` : '—'}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input type="date" className="form-input" style={{ fontSize: 11, padding: '3px 7px', width: 130 }} value={newDates[item.id] || ''} onChange={e => setNewDates(p => ({ ...p, [item.id]: e.target.value }))} />
+                        {newDates[item.id] && <button className="btn btn-primary btn-sm" style={{ fontSize: 11 }} onClick={() => update(item)}>✓</button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── COMMERCIAL INVOICES ─────────────────────────────────────
+function Invoices() {
+  const { entity } = useApp();
+  const [invoices, setInvoices] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterType, setFilterType] = useState('actual');
+  const [showNew, setShowNew] = useState(false);
+
+  useEffect(() => { load(); }, [entity, filterType]);
+
+  async function load() {
+    setLoading(true);
+    const [r1, r2] = await Promise.all([
+      db(entity).from('commercial_invoices').select('*, customers(name,code)').eq('entity', entity).eq('invoice_type', filterType).order('invoice_date', { ascending: false }).limit(200),
+      db(entity).from('customers').select('id,name,code').order('name'),
+    ]);
+    setInvoices(r1.data || []);
+    setCustomers(r2.data || []);
+    setLoading(false);
+  }
+
+  const STATUS_CLS = { draft: 'bgr', issued: 'bb', partial_paid: 'by', paid: 'bg', overdue: 'br', cancelled: 'bgr' };
+  const outstanding = invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled').reduce((s, i) => s + (i.total_amount || 0), 0);
+  const paid = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + (i.total_amount || 0), 0);
+
+  return (
+    <div>
+      <div className="stat-grid">
+        <div className="stat-card"><div className="stat-label">Outstanding</div><div className="stat-val" style={{ fontSize: 18, color: 'var(--gold)' }}>{fmtUSD(outstanding)}</div></div>
+        <div className="stat-card"><div className="stat-label">Paid</div><div className="stat-val" style={{ fontSize: 18, color: 'var(--green)' }}>{fmtUSD(paid)}</div></div>
+        <div className="stat-card"><div className="stat-label">Total Invoices</div><div className="stat-val" style={{ fontSize: 18 }}>{invoices.length}</div></div>
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
+        <div className="tabs" style={{ marginBottom: 0, flex: 1 }}>
+          <button className={`tab ${filterType === 'actual' ? 'active' : ''}`} onClick={() => setFilterType('actual')}>Actual Amount</button>
+          <button className={`tab ${filterType === 'customs_clearance' ? 'active' : ''}`} onClick={() => setFilterType('customs_clearance')}>Customs Clearance</button>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={() => setShowNew(true)}>+ New Invoice</button>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Invoice No.</th><th>Customer</th><th>Date</th><th>Sailing Date</th><th>Due Date</th><th>Amount</th><th>Balance Due</th><th>Status</th><th>CC Diff</th></tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={9}><div className="empty">Loading...</div></td></tr>
+              : invoices.map(inv => (
+                <tr key={inv.id}>
+                  <td className="td-p td-mono">{inv.invoice_number}</td>
+                  <td>{inv.customers?.name}</td>
+                  <td>{fmtDate(inv.invoice_date)}</td>
+                  <td>{fmtDate(inv.sailing_date)}</td>
+                  <td style={{ color: inv.status === 'overdue' ? 'var(--red)' : undefined }}>{fmtDate(inv.due_date)}</td>
+                  <td className="td-amt">{fmtUSD(inv.total_amount)}</td>
+                  <td className="td-amt" style={{ fontWeight: 600 }}>{fmtUSD((inv.total_amount || 0) - (inv.amount_paid || 0))}</td>
+                  <td><span className={`badge ${STATUS_CLS[inv.status] || 'bgr'}`}>{inv.status?.replace(/_/g, ' ')}</span></td>
+                  <td>{inv.cc_vs_actual_diff > 0 && <span className={`badge ${inv.credit_note_issued ? 'bg' : 'by'}`}>{inv.credit_note_issued ? '✓ CN' : `Pending $${fmt(inv.cc_vs_actual_diff, 0)}`}</span>}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+      {showNew && <NewInvoiceModal customers={customers} entity={entity} filterType={filterType} onClose={() => setShowNew(false)} onSaved={load} />}
+    </div>
+  );
+}
+
+function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
+  const [form, setForm] = useState({ invoice_number: '', invoice_type: filterType, customer_id: '', invoice_date: today(), sailing_date: '', payment_terms: '60 days from date of shipment', shipping_terms: 'FOB SHANGHAI', port_of_destination: '', via: 'OCEAN FREIGHT', goods_description: 'FABRIC', container_number: '', bl_number: '', misc_charges: 0, status: 'issued' });
+  const [items, setItems] = useState([{ description: '', color: '', quantity: '', unit_price: '', net_weight: '', gross_weight: '' }]);
+  const [saving, setSaving] = useState(false);
+
+  function upItem(i, f, v) { setItems(p => p.map((item, idx) => idx === i ? { ...item, [f]: v } : item)); }
+  const subtotal = items.reduce((s, i) => s + ((+i.quantity || 0) * (+i.unit_price || 0)), 0);
+  const total = subtotal + (+form.misc_charges || 0);
+
+  async function save() {
+    if (!form.invoice_number || !form.customer_id) return;
+    setSaving(true);
+    const d = db(entity);
+    let due_date = null;
+    if (form.sailing_date) { const dt = new Date(form.sailing_date); dt.setDate(dt.getDate() + 60); due_date = dt.toISOString().split('T')[0]; }
+    const { data: inv, error } = await d.from('commercial_invoices').insert({ ...form, entity, subtotal, total_amount: total, due_date, misc_charges: +form.misc_charges || 0 }).select().single();
+    if (error) { setSaving(false); return; }
+    const lineItems = items.filter(i => i.description).map((item, idx) => ({ invoice_id: inv.id, line_no: idx + 1, ...item, quantity: +item.quantity || 0, unit_price: +item.unit_price || 0, net_weight: +item.net_weight || null, gross_weight: +item.gross_weight || null }));
+    if (lineItems.length) await d.from('invoice_items').insert(lineItems);
+    onSaved(); onClose(); setSaving(false);
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal modal-lg">
+        <div className="modal-hdr"><div className="modal-title">New Commercial Invoice</div><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
+        <div className="grid2">
+          <div className="form-group"><label className="form-label">Invoice Number *</label><input className="form-input" value={form.invoice_number} onChange={e => setForm({ ...form, invoice_number: e.target.value })} placeholder="KAAN20260429C1" /></div>
+          <div className="form-group"><label className="form-label">Invoice Type</label><select className="form-input" value={form.invoice_type} onChange={e => setForm({ ...form, invoice_type: e.target.value })}><option value="actual">Actual Amount</option><option value="customs_clearance">Customs Clearance</option></select></div>
+          <div className="form-group"><label className="form-label">Customer *</label><select className="form-input" value={form.customer_id} onChange={e => setForm({ ...form, customer_id: e.target.value })}><option value="">Select...</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+          <div className="form-group"><label className="form-label">Invoice Date</label><input type="date" className="form-input" value={form.invoice_date} onChange={e => setForm({ ...form, invoice_date: e.target.value })} /></div>
+          <div className="form-group"><label className="form-label">Sailing Date (ETD)</label><input type="date" className="form-input" value={form.sailing_date} onChange={e => setForm({ ...form, sailing_date: e.target.value })} /></div>
+          <div className="form-group"><label className="form-label">Container No.</label><input className="form-input" value={form.container_number} onChange={e => setForm({ ...form, container_number: e.target.value })} /></div>
+          <div className="form-group"><label className="form-label">B/L Number</label><input className="form-input" value={form.bl_number} onChange={e => setForm({ ...form, bl_number: e.target.value })} /></div>
+          <div className="form-group"><label className="form-label">Port of Destination</label><input className="form-input" value={form.port_of_destination} onChange={e => setForm({ ...form, port_of_destination: e.target.value })} /></div>
+          <div className="form-group"><label className="form-label">Via</label><select className="form-input" value={form.via} onChange={e => setForm({ ...form, via: e.target.value })}><option>OCEAN FREIGHT</option><option>AIR</option><option>FEDEX</option><option>DHL</option></select></div>
+          <div className="form-group"><label className="form-label">Misc. Charges (USD)</label><input type="number" className="form-input" value={form.misc_charges} onChange={e => setForm({ ...form, misc_charges: e.target.value })} step="0.01" /></div>
+        </div>
+        <div className="sh" style={{ marginTop: 6 }}>
+          <div className="sh-title">Invoice Items</div>
+          <button className="btn btn-secondary btn-sm" onClick={() => setItems(p => [...p, { description: '', color: '', quantity: '', unit_price: '', net_weight: '', gross_weight: '' }])}>+ Add</button>
+        </div>
+        <div className="table-wrap" style={{ marginBottom: 14 }}>
+          <table>
+            <thead><tr><th>Description</th><th>Color</th><th>Qty (mts)</th><th>Unit Price</th><th>Amount</th><th>Net Wt</th><th>Gross Wt</th><th></th></tr></thead>
+            <tbody>
+              {items.map((item, i) => (
+                <tr key={i}>
+                  <td><input className="form-input" style={{ fontSize: 12, padding: '4px 7px' }} value={item.description} onChange={e => upItem(i, 'description', e.target.value)} /></td>
+                  <td><input className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 80 }} value={item.color} onChange={e => upItem(i, 'color', e.target.value)} /></td>
+                  <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 80 }} value={item.quantity} onChange={e => upItem(i, 'quantity', e.target.value)} /></td>
+                  <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 80 }} value={item.unit_price} onChange={e => upItem(i, 'unit_price', e.target.value)} step="0.0001" /></td>
+                  <td className="td-amt" style={{ fontSize: 12 }}>{fmt((+item.quantity || 0) * (+item.unit_price || 0))}</td>
+                  <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 70 }} value={item.net_weight} onChange={e => upItem(i, 'net_weight', e.target.value)} /></td>
+                  <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 70 }} value={item.gross_weight} onChange={e => upItem(i, 'gross_weight', e.target.value)} /></td>
+                  <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setItems(p => p.filter((_, idx) => idx !== i))}>✕</button></td>
+                </tr>
+              ))}
+              <tr><td colSpan={4} style={{ textAlign: 'right', fontWeight: 600, padding: '9px 13px', color: 'var(--text-primary)' }}>TOTAL:</td><td className="td-amt" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{fmtUSD(total)}</td><td colSpan={3} /></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save Invoice →'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── MASTER DATA ─────────────────────────────────────────────
+function Customers() {
+  const { entity } = useApp();
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { db(entity).from('customers').select('*').order('name').then(r => { setData(r.data || []); setLoading(false); }); }, [entity]);
+  return (
+    <div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Name</th><th>Country</th><th>Payment Terms</th><th>Early Pay Discount</th><th>Currency</th><th>Opening Balance</th></tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={7}><div className="empty">Loading...</div></td></tr>
+              : data.map(c => (
+                <tr key={c.id}>
+                  <td className="td-mono">{c.code}</td>
+                  <td className="td-p">{c.name}</td>
+                  <td style={{ fontSize: 12 }}>{c.country}</td>
+                  <td style={{ fontSize: 12 }}>{c.payment_terms_days} days</td>
+                  <td>{c.early_payment_discount_pct > 0 ? <span className="badge bg">{c.early_payment_discount_pct}% in {c.early_payment_days}d</span> : '—'}</td>
+                  <td className="td-mono">{c.currency}</td>
+                  <td className="td-amt">{fmtUSD(c.opening_balance)}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function Factories() {
+  const { entity } = useApp();
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { db(entity).from('factories').select('*').eq('entity', entity).order('name').then(r => { setData(r.data || []); setLoading(false); }); }, [entity]);
+  return (
+    <div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Name</th><th>Short Name</th><th>Country</th><th>Contact Email</th><th>Opening Balance</th></tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={6}><div className="empty">Loading...</div></td></tr>
+              : data.map(f => (
+                <tr key={f.id}>
+                  <td className="td-mono">{f.code}</td>
+                  <td className="td-p">{f.name}</td>
+                  <td style={{ fontSize: 12 }}>{f.short_name}</td>
+                  <td style={{ fontSize: 12 }}>{f.country}</td>
+                  <td style={{ fontSize: 12 }}>{f.contact_email || '—'}</td>
+                  <td className="td-amt">{fmtUSD(f.opening_balance)}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── ROUTER ──────────────────────────────────────────────────
+const PAGE_TITLES = { dashboard: 'Dashboard', alerts: 'Delivery Alerts', 'customer-orders': 'Customer Orders', 'factory-orders': 'Factory POs', proforma: 'Proforma Invoices', invoices: 'Commercial Invoices', shipments: 'Shipments', osr: 'Order Status Reports', payments: 'Payments', deposits: 'Deposits', notes: 'Credit / Debit Notes', commission: 'Arte Linea Commission', pl: 'P&L Statement', ledger: 'Debtors & Creditors', archive: 'Document Archive', customers: 'Customers', factories: 'Factories', products: 'Products & Prices', settings: 'Settings' };
+
+function Router({ page, setPage }) {
+  const title = PAGE_TITLES[page] || page;
+  const content = (() => {
+    switch (page) {
+      case 'dashboard': return <Dashboard setPage={setPage} />;
+      case 'alerts': return <Alerts />;
+      case 'customer-orders': return <CustomerOrders />;
+      case 'invoices': return <Invoices />;
+      case 'osr': return <OSR />;
+      case 'payments': return <Payments />;
+      case 'pl': return <PLReport />;
+      case 'ledger': return <Ledger />;
+      case 'customers': return <Customers />;
+      case 'factories': return <Factories />;
+      default: return <ComingSoon title={title} />;
+    }
+  })();
+  return <Layout title={title} page={page} setPage={setPage}>{content}</Layout>;
+}
+
+// ─── ROOT ────────────────────────────────────────────────────
+function App() {
+  const [entity, setEntityState] = useState(() => localStorage.getItem('kaan_entity') || 'HK');
+  const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem('kaan_user') || 'null'); } catch { return null; } });
+  const [page, setPage] = useState('dashboard');
+
+  function setEntity(e) { setEntityState(e); localStorage.setItem('kaan_entity', e); }
+  function login(u) { setUser(u); localStorage.setItem('kaan_user', JSON.stringify(u)); }
+  function logout() { setUser(null); localStorage.removeItem('kaan_user'); }
+
+  if (!user) return (
+    <Ctx.Provider value={{ entity, setEntity, user, login, logout }}>
+      <Login />
+    </Ctx.Provider>
+  );
+
+  return (
+    <Ctx.Provider value={{ entity, setEntity, user, login, logout }}>
+      <Router page={page} setPage={setPage} />
+    </Ctx.Provider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
