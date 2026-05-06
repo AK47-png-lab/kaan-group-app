@@ -1435,14 +1435,6 @@ function isValidItem(desc, qty, price) {
 }
 
 // Find column - expanded keywords for factory price columns
-function findCol(headers, keywords) {
-  for (const kw of keywords) {
-    const idx = headers.findIndex(h => String(h||'').toUpperCase().includes(kw));
-    if (idx >= 0) return idx;
-  }
-  return -1;
-}
-
 function extractPI(rows, factoryName) {
   const items = [];
   const hi = findHeaderRow(rows);
