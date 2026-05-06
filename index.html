@@ -1434,22 +1434,40 @@ function isValidItem(desc, qty, price) {
   return true;
 }
 
+// Find column - expanded keywords for factory price columns
+function findCol(headers, keywords) {
+  for (const kw of keywords) {
+    const idx = headers.findIndex(h => String(h||'').toUpperCase().includes(kw));
+    if (idx >= 0) return idx;
+  }
+  return -1;
+}
+
 function extractPI(rows, factoryName) {
   const items = [];
   const hi = findHeaderRow(rows);
   const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
   const dc = findCol(headers, ['DESCRIPTION','ITEM NAME','ITEM','FABRIC','DESIGN','QUALITY','PRODUCT','NAME']);
   const cc = findCol(headers, ['COLOR','COLOUR','COL.','COL ']);
-  const qc = findCol(headers, ['QUANTITY','QTY','METER','MTR','M ','M)']);
-  const pc = findCol(headers, ['UNIT PRICE','PRICE','FOB','UNIT']);
-  const nwc = findCol(headers, ['NET WEIGHT','NET WT','N.W','NW']);
-  const gwc = findCol(headers, ['GROSS WEIGHT','GROSS WT','G.W','GW']);
+  const qc = findCol(headers, ['QUANTITY','QTY','METER','MTR','M ','M)','LENGTH']);
+  // Factory price: try many common column names
+  const pc = findCol(headers, ['UNIT PRICE','FOB PRICE','PRICE USD','UNIT PRIC','FOB USD','FOB SH','PRICE/M','PRICE/MT','UNIT COST','USD/M','PRICE','FOB','UNIT']);
+  const nwc = findCol(headers, ['NET WEIGHT','NET WT','N.W','NW','NET W']);
+  const gwc = findCol(headers, ['GROSS WEIGHT','GROSS WT','G.W','GW','GROSS W']);
   const oc = findCol(headers, ['ORDER','PO NO','KAAN','REF']);
   for (let i = hi+1; i < rows.length; i++) {
     const row = rows[i];
     const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
     const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
-    const price = pc >= 0 ? parseFloat(row[pc]) || 0 : 0;
+    // Also try to find price from any numeric column if dedicated price col not found
+    let price = pc >= 0 ? parseFloat(row[pc]) || 0 : 0;
+    if (price === 0 && pc < 0) {
+      // scan row for small decimal numbers that look like unit prices (0.5 - 50 range)
+      for (const cell of row) {
+        const v = parseFloat(cell);
+        if (!isNaN(v) && v > 0.1 && v < 100 && String(cell).includes('.')) { price = v; break; }
+      }
+    }
     if (!isValidItem(desc, qty, price)) continue;
     items.push({
       description: desc,
@@ -1688,33 +1706,32 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
         // Track what we extracted per factory
         let piItems = [], plItems = [], dplExtracted = [];
 
-        // Slot 1: PI file
-        if (factory.piFile) {
-          appendLog('Reading PI file: ' + factory.piFile.name);
-          const r = await parseFile(factory.piFile, 'pi', fname);
-          piItems = r.pi_items || [];
-          if (!plItems.length) plItems = r.pl_items || [];
-          if (!dplExtracted.length) dplExtracted = r.dpl_items || [];
-          appendLog('  → ' + piItems.length + ' invoice items' + (r.pl_items.length ? ', ' + r.pl_items.length + ' PL items' : '') + (r.dpl_items.length ? ', ' + r.dpl_items.length + ' DPL rolls' : ''));
+        // Parse all uploaded slots - each independently
+        const slotFiles = [
+          { file: factory.piFile, hint: 'auto', label: 'File 1 (PI)' },
+          { file: factory.plFile, hint: 'pl', label: 'File 2 (PL)' },
+          { file: factory.dplFile, hint: 'dpl', label: 'File 3 (DPL)' },
+        ].filter(s => s.file);
+
+        for (const slot of slotFiles) {
+          appendLog('  Reading ' + slot.label + ': ' + slot.file.name);
+          const r = await parseFile(slot.file, slot.hint, fname);
+          const gotPi = (r.pi_items || []).length;
+          const gotPl = (r.pl_items || []).length;
+          const gotDpl = (r.dpl_items || []).length;
+          appendLog('    PI:' + gotPi + ' PL:' + gotPl + ' DPL:' + gotDpl);
+          if (gotPi > piItems.length) piItems = r.pi_items;
+          if (gotPl > plItems.length) plItems = r.pl_items;
+          if (gotDpl > dplExtracted.length) dplExtracted = r.dpl_items;
         }
 
-        // Slot 2: PL file
-        if (factory.plFile) {
-          appendLog('Reading PL file: ' + factory.plFile.name);
-          const r = await parseFile(factory.plFile, 'pl', fname);
-          if (r.pl_items.length) plItems = r.pl_items;
-          if (!piItems.length && r.pi_items.length) piItems = r.pi_items;
-          if (!dplExtracted.length && r.dpl_items.length) dplExtracted = r.dpl_items;
-          appendLog('  → ' + r.pl_items.length + ' PL items');
+        // Fallback: if no PI items, use PL data
+        if (!piItems.length && plItems.length) {
+          appendLog('  Using PL data as fallback for PI');
+          piItems = plItems.map(p => ({ description: p.description, color: p.color, quantity: p.quantity, factory_price: 0, net_weight: p.net_weight, gross_weight: p.gross_weight, order_number: p.order_number, factory_name: fname }));
         }
 
-        // Slot 3: DPL file
-        if (factory.dplFile) {
-          appendLog('Reading DPL file: ' + factory.dplFile.name);
-          const r = await parseFile(factory.dplFile, 'dpl', fname);
-          dplExtracted = r.dpl_items || [];
-          appendLog('  → ' + dplExtracted.length + ' DPL rolls');
-        }
+        appendLog('  ✓ ' + fname + ': ' + piItems.length + ' items, ' + dplExtracted.length + ' DPL rolls');
 
         // Merge PI + PL for this factory
         piItems.forEach(item => {
@@ -1767,6 +1784,7 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
   async function saveAndGenerate() {
     if (!form.invoice_number || !form.customer_id) { alert('Invoice number and customer required'); return; }
     setSaving(true);
+    try {
     const d = db(entity);
     const co = CONFIGS[entity];
     let due_date = null;
@@ -1775,7 +1793,192 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
       dt.setDate(dt.getDate() + 60);
       due_date = dt.toISOString().split('T')[0];
     }
-    const { data: custData } = await d.from('customers').select('*').eq('id', form.customer_id).single();
+
+    // Get customer data with timeout
+    const custResult = await Promise.race([
+      d.from('customers').select('*').eq('id', form.customer_id).single(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+    ]);
+    const custData = custResult.data || {};
+
+    // Save actual invoice
+    const invResult = await Promise.race([
+      d.from('commercial_invoices').insert({
+        invoice_number: form.invoice_number,
+        customer_id: form.customer_id,
+        invoice_date: form.invoice_date,
+        sailing_date: form.sailing_date || null,
+        payment_terms: form.payment_terms,
+        shipping_terms: form.shipping_terms,
+        port_of_destination: form.port_of_destination,
+        via: form.via,
+        goods_description: form.goods_description,
+        container_number: form.container_number,
+        bl_number: form.bl_number,
+        entity, invoice_type: 'actual',
+        subtotal: actualTotal - (+form.misc_charges||0),
+        total_amount: actualTotal, due_date,
+        misc_charges: +form.misc_charges||0,
+        status: 'issued'
+      }).select().single(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
+    ]);
+
+    if (!invResult.data) {
+      throw new Error('Failed to save invoice: ' + (invResult.error?.message || 'unknown error'));
+    }
+    const inv = invResult.data;
+
+    // Save line items (batch)
+    const lineItems = items.filter(i => i.description).map((item, idx) => ({
+      invoice_id: inv.id, line_no: idx+1,
+      description: item.description, color: item.color,
+      quantity: +item.quantity||0, unit_price: +item.unit_price||0,
+      net_weight: +item.net_weight||null, gross_weight: +item.gross_weight||null,
+    }));
+    if (lineItems.length) {
+      await Promise.race([
+        d.from('invoice_items').insert(lineItems),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
+      ]);
+    }
+
+    // Save CC invoice if applicable
+    if (hasCCPrices) {
+      const ccResult = await d.from('commercial_invoices').insert({
+        invoice_number: form.invoice_number + '-CC',
+        customer_id: form.customer_id,
+        invoice_date: form.invoice_date,
+        sailing_date: form.sailing_date || null,
+        payment_terms: form.payment_terms,
+        shipping_terms: form.shipping_terms,
+        entity, invoice_type: 'customs_clearance',
+        subtotal: ccTotal - (+form.misc_charges||0),
+        total_amount: ccTotal, due_date,
+        paired_invoice_id: inv.id,
+        cc_vs_actual_diff: ccTotal - actualTotal,
+        misc_charges: +form.misc_charges||0,
+        status: 'issued'
+      }).select().single();
+
+      if (ccResult.data) {
+        const ccLines = items.filter(i => i.description).map((item, idx) => ({
+          invoice_id: ccResult.data.id, line_no: idx+1,
+          description: item.description, color: item.color,
+          quantity: +item.quantity||0,
+          unit_price: +item.cc_price||+item.unit_price||0,
+          net_weight: +item.net_weight||null, gross_weight: +item.gross_weight||null,
+        }));
+        if (ccLines.length) await d.from('invoice_items').insert(ccLines);
+        await d.from('commercial_invoices').update({ paired_invoice_id: ccResult.data.id, cc_vs_actual_diff: ccTotal - actualTotal }).eq('id', inv.id);
+      }
+    }
+
+    // Build documents - this is pure JS, no network calls
+    const docs = [];
+    const sep = '─'.repeat(90);
+    const custName = custData.name || '';
+    const custAddr = [custData.address_line1, custData.city, custData.tax_id ? 'RFC/TAX ID: ' + custData.tax_id : ''].filter(Boolean).join(' | ');
+
+    function buildCI(invNum, lineData, total, isCC) {
+      const rows = lineData.map(i => {
+        const d = String(i.description||'').substring(0,36).padEnd(37);
+        const c = String(i.color||'').substring(0,10).padEnd(11);
+        const q = String(fmtNum(+i.quantity||0,1)).padEnd(10);
+        const up = String(fmtNum(+i.unit_price||0,4)).padEnd(12);
+        const amt = String(fmtNum((+i.quantity||0)*(+i.unit_price||0),2)).padEnd(12);
+        const nw = String(fmtNum(+i.net_weight||0,1)).padEnd(9);
+        const gw = fmtNum(+i.gross_weight||0,1);
+        return d+c+q+up+amt+nw+gw;
+      }).join('\n');
+      return [
+        co.name, co.address, co.taxId ? 'TAX ID: '+co.taxId : '',
+        '', isCC ? 'COMMERCIAL INVOICE (FOR CUSTOMS CLEARANCE ONLY)' : 'COMMERCIAL INVOICE',
+        '', 'TO: '+custName, custAddr,
+        '', 'INVOICE NO: '+invNum, 'DATE: '+form.invoice_date,
+        isCC ? 'FOR CUSTOMS CLEARANCE USE ONLY - NOT FOR PAYMENT' : '',
+        'PAYMENT: '+form.payment_terms, 'VIA: '+form.via+' | '+form.shipping_terms,
+        form.container_number ? 'CONTAINER: '+form.container_number : '',
+        form.bl_number ? 'B/L: '+form.bl_number : '',
+        form.port_of_destination ? 'PORT OF DESTINATION: '+form.port_of_destination : '',
+        '', sep,
+        'DESCRIPTION                          COLOR      QTY(Mts)  UNIT PRICE  AMOUNT      NET WT   GROSS WT',
+        sep, rows, sep,
+        'TOTAL: '+fmtNum(lineData.reduce((s,i)=>s+(+i.quantity||0),0),0)+' Mts'+' '.repeat(18)+fmtUSD(total),
+        form.misc_charges > 0 ? 'Includes misc charges: '+fmtUSD(+form.misc_charges) : '',
+        '', 'BANKING DETAILS:', 'Company: '+co.name, 'Account No: '+co.bankAccount,
+        'Clearing Code: '+co.clearingCode, 'Bank: '+co.bankName, 'Swift: '+co.swift,
+        '', 'For and on behalf of', co.name, '', '_________________________', 'Authorized Signature(s)'
+      ].filter(l => l !== '').join('\n');
+    }
+
+    docs.push({ label: '📄 Commercial Invoice — '+form.invoice_number, content: buildCI(form.invoice_number, items.filter(i=>i.description).map(i=>({...i,unit_price:+i.unit_price||0})), actualTotal, false), filename: form.invoice_number+'_CI_Actual.txt' });
+
+    if (hasCCPrices) {
+      docs.push({ label: '📄 CC Invoice — '+form.invoice_number+'-CC', content: buildCI(form.invoice_number+'-CC', items.filter(i=>i.description).map(i=>({...i,unit_price:+i.cc_price||+i.unit_price||0})), ccTotal, true), filename: form.invoice_number+'_CI_CC.txt' });
+      const diff = ccTotal - actualTotal;
+      docs.push({ label: '📝 Credit Note — '+fmtUSD(diff), filename: form.invoice_number+'_CreditNote.txt', content: [
+        co.name, co.address, '', 'CREDIT NOTE', '', 'TO: '+custName, '',
+        'DATE: '+form.invoice_date, 'REF INVOICE: '+form.invoice_number, 'CC INVOICE: '+form.invoice_number+'-CC', '',
+        sep, 'Difference: CC Invoice vs Actual Invoice     '+fmtUSD(diff),
+        '(CC: '+fmtUSD(ccTotal)+' minus Actual: '+fmtUSD(actualTotal)+')', sep,
+        'TOTAL CREDIT: '+fmtUSD(diff), '', 'This amount will be adjusted against your next payment.',
+        '', 'For and on behalf of', co.name
+      ].join('\n') });
+    }
+
+    const sep100 = '─'.repeat(100);
+    docs.push({ label: '📦 Packing List — '+form.invoice_number, filename: form.invoice_number+'_PL.txt', content: [
+      co.name, co.address, '', 'PACKING LIST', '',
+      'INVOICE: '+form.invoice_number, 'DATE: '+form.invoice_date,
+      form.container_number ? 'CONTAINER: '+form.container_number : '', '',
+      sep100, 'DESCRIPTION                  COLOR       QTY(Mts)  PKGS  NET WT    GROSS WT   CBM      ORDER NO.', sep100,
+      ...items.filter(i=>i.description).map(i => {
+        const d=String(i.description).substring(0,28).padEnd(29); const c=String(i.color||'').padEnd(12);
+        const q=String(fmtNum(+i.quantity||0,1)).padEnd(10); const p=String(i.packages||'').padEnd(6);
+        const nw=String(fmtNum(+i.net_weight||0,1)).padEnd(10); const gw=String(fmtNum(+i.gross_weight||0,1)).padEnd(11);
+        const cbm=String(fmtNum(+i.cbm||0,3)).padEnd(9); return d+c+q+p+nw+gw+cbm+(i.order_number||'');
+      }),
+      sep100,
+      'TOTAL: '+fmtNum(items.reduce((s,i)=>s+(+i.quantity||0),0),0)+' Mts | '+items.reduce((s,i)=>s+(+i.packages||0),0)+' Pkgs | Net: '+fmtNum(items.reduce((s,i)=>s+(+i.net_weight||0),0),1)+' kgs | Gross: '+fmtNum(items.reduce((s,i)=>s+(+i.gross_weight||0),0),1)+' kgs'
+    ].filter(l=>l!=='').join('\n') });
+
+    if (dplItems.length > 0) {
+      const sep80 = '─'.repeat(80);
+      docs.push({ label: '📋 Detailed Packing List — '+form.invoice_number, filename: form.invoice_number+'_DPL.txt', content: [
+        co.name, co.address, '', 'DETAILED PACKING LIST', '',
+        'INVOICE: '+form.invoice_number, 'DATE: '+form.invoice_date, '',
+        sep80, 'ORDER NO.    DESCRIPTION                     ROLL NO.   QTY(Mts)   LOT', sep80,
+        ...dplItems.map(i => {
+          const on=String(i.order_number||'').padEnd(13); const d=String(i.description||'').substring(0,31).padEnd(32);
+          const r=String(i.roll_number||'').padEnd(11); const q=String(fmtNum(+i.quantity_mts||0,1)).padEnd(11);
+          return on+d+r+q+(i.lot||'');
+        }),
+        sep80, 'TOTAL: '+fmtNum(dplItems.reduce((s,i)=>s+(+i.quantity_mts||0),0),1)+' Mts | '+dplItems.length+' Rolls'
+      ].join('\n') });
+    }
+
+    // Save to archive in background - don't block document generation
+    d.from('document_archive').insert(docs.map(doc => ({
+      doc_number: form.invoice_number,
+      doc_type: doc.filename.includes('CI_CC') ? 'commercial_invoice_cc' : doc.filename.includes('DPL') ? 'detailed_packing_list' : doc.filename.includes('_PL') ? 'packing_list' : doc.filename.includes('Credit') ? 'credit_note_cc_diff' : 'commercial_invoice_actual',
+      entity, doc_date: form.invoice_date,
+      financial_year: new Date(form.invoice_date).getFullYear(),
+      counterparty_type: 'customer', counterparty_id: form.customer_id,
+      counterparty_name: custName, amount: actualTotal, currency: 'USD',
+      source_table: 'commercial_invoices', source_id: inv.id, file_name: doc.filename
+    }))).then(() => {}).catch(() => {}); // fire and forget
+
+    setGeneratedDocs(docs);
+    setStep(4);
+    onSaved();
+
+    } catch(err) {
+      console.error('saveAndGenerate error:', err);
+      alert('Error: ' + err.message + '\n\nPlease try again. If the problem persists, check your internet connection.');
+    }
+    setSaving(false);
+  }
 
     const { data: inv } = await d.from('commercial_invoices').insert({
       ...form, entity, invoice_type: 'actual',
@@ -1894,20 +2097,6 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
     }
 
     for (const doc of docs) {
-      await d.from('document_archive').insert({
-        doc_number: form.invoice_number,
-        doc_type: doc.filename.includes('CI_CC') ? 'commercial_invoice_cc' : doc.filename.includes('DPL') ? 'detailed_packing_list' : doc.filename.includes('_PL') ? 'packing_list' : doc.filename.includes('Credit') ? 'credit_note_cc_diff' : 'commercial_invoice_actual',
-        entity, doc_date: form.invoice_date, financial_year: new Date(form.invoice_date).getFullYear(),
-        counterparty_type: 'customer', counterparty_id: form.customer_id,
-        counterparty_name: custName, amount: actualTotal, currency: 'USD',
-        source_table: 'commercial_invoices', source_id: inv.id, file_name: doc.filename
-      }).select();
-    }
-
-    setGeneratedDocs(docs);
-    setStep(4);
-    onSaved();
-    setSaving(false);
   }
 
   function download(doc) {
