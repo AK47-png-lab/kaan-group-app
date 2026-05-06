@@ -10,6 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <style>
 :root {
   --navy: #0f1729;
@@ -1181,6 +1182,190 @@ function getCustomerCode(customerId, customers) {
   return c ? c.code : '';
 }
 
+// Read all sheets from an Excel file, returns { sheetName: [[row data]] }
+async function readAllSheets(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const result = {};
+        wb.SheetNames.forEach(name => {
+          result[name] = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' });
+        });
+        resolve(result);
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Find header row index (row with most non-empty cells in first 15 rows)
+function findHeaderRow(rows) {
+  let best = 0, bestCount = 0;
+  rows.slice(0, 15).forEach((row, i) => {
+    const count = row.filter(c => c !== '' && c !== null && c !== undefined).length;
+    if (count > bestCount) { bestCount = count; best = i; }
+  });
+  return best;
+}
+
+// Find column index by keywords
+function findCol(headers, keywords) {
+  for (const kw of keywords) {
+    const idx = headers.findIndex(h => String(h||'').toUpperCase().includes(kw));
+    if (idx >= 0) return idx;
+  }
+  return -1;
+}
+
+// Detect sheet type from headers and content
+function detectSheetType(rows) {
+  if (!rows || rows.length < 2) return null;
+  const allText = rows.slice(0, 20).flat().map(c => String(c||'').toUpperCase()).join(' ');
+  if (allText.includes('ROLL NO') || allText.includes('ROLL NUMBER') || (allText.includes('ROLL') && allText.includes('LOT'))) return 'dpl';
+  if (allText.includes('CBM') || allText.includes('CARTON') || (allText.includes('PACKAGE') && allText.includes('GROSS'))) return 'pl';
+  if (allText.includes('UNIT PRICE') || allText.includes('FOB') || allText.includes('AMOUNT') || allText.includes('PROFORMA') || allText.includes('INVOICE')) return 'pi';
+  if (allText.includes('PACKING LIST') || allText.includes('GROSS WEIGHT') || allText.includes('NET WEIGHT')) return 'pl';
+  return 'pi'; // default
+}
+
+// Extract PI items from rows
+function extractPI(rows, factoryName) {
+  const items = [];
+  const hi = findHeaderRow(rows);
+  const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
+  const dc = findCol(headers, ['DESCRIPTION','ITEM NAME','ITEM','FABRIC','DESIGN','QUALITY','PRODUCT','NAME']);
+  const cc = findCol(headers, ['COLOR','COLOUR','COL.','COL ']);
+  const qc = findCol(headers, ['QUANTITY','QTY','METER','MTR','M ','M)']);
+  const pc = findCol(headers, ['UNIT PRICE','PRICE','FOB','UNIT']);
+  const nwc = findCol(headers, ['NET WEIGHT','NET WT','N.W','NW']);
+  const gwc = findCol(headers, ['GROSS WEIGHT','GROSS WT','G.W','GW']);
+  const oc = findCol(headers, ['ORDER','PO NO','KAAN','REF']);
+  for (let i = hi+1; i < rows.length; i++) {
+    const row = rows[i];
+    const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
+    if (!desc || /^total/i.test(desc) || /^grand/i.test(desc) || /^sub/i.test(desc)) continue;
+    const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
+    const price = pc >= 0 ? parseFloat(row[pc]) || 0 : 0;
+    if (!desc && qty === 0) continue;
+    items.push({
+      description: desc,
+      color: cc >= 0 ? String(row[cc]||'').trim() : '',
+      quantity: qty,
+      factory_price: price,
+      net_weight: nwc >= 0 ? parseFloat(row[nwc]) || 0 : 0,
+      gross_weight: gwc >= 0 ? parseFloat(row[gwc]) || 0 : 0,
+      order_number: oc >= 0 ? String(row[oc]||'').trim() : '',
+      factory_name: factoryName,
+    });
+  }
+  return items;
+}
+
+// Extract PL items from rows
+function extractPL(rows) {
+  const items = [];
+  const hi = findHeaderRow(rows);
+  const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
+  const dc = findCol(headers, ['DESCRIPTION','ITEM','FABRIC','DESIGN','NAME','QUALITY']);
+  const cc = findCol(headers, ['COLOR','COLOUR','COL.','COL ']);
+  const qc = findCol(headers, ['QUANTITY','QTY','METER','MTR']);
+  const pkc = findCol(headers, ['PACKAGE','PKG','CARTON','CTN','ROLL','BALE']);
+  const nwc = findCol(headers, ['NET WEIGHT','NET WT','N.W','NW']);
+  const gwc = findCol(headers, ['GROSS WEIGHT','GROSS WT','G.W','GW']);
+  const cbmc = findCol(headers, ['CBM','VOLUME','M3','M³']);
+  const oc = findCol(headers, ['ORDER','PO','KAAN','REF']);
+  for (let i = hi+1; i < rows.length; i++) {
+    const row = rows[i];
+    const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
+    if (!desc || /^total/i.test(desc) || /^grand/i.test(desc)) continue;
+    items.push({
+      description: desc,
+      color: cc >= 0 ? String(row[cc]||'').trim() : '',
+      quantity: qc >= 0 ? parseFloat(row[qc]) || 0 : 0,
+      packages: pkc >= 0 ? parseFloat(row[pkc]) || 0 : 0,
+      net_weight: nwc >= 0 ? parseFloat(row[nwc]) || 0 : 0,
+      gross_weight: gwc >= 0 ? parseFloat(row[gwc]) || 0 : 0,
+      cbm: cbmc >= 0 ? parseFloat(row[cbmc]) || 0 : 0,
+      order_number: oc >= 0 ? String(row[oc]||'').trim() : '',
+    });
+  }
+  return items;
+}
+
+// Extract DPL items from rows
+function extractDPL(rows, factoryName) {
+  const items = [];
+  const hi = findHeaderRow(rows);
+  const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
+  const dc = findCol(headers, ['DESCRIPTION','ITEM','FABRIC','DESIGN','NAME','QUALITY']);
+  const rc = findCol(headers, ['ROLL NO','ROLL NUMBER','ROLL#','ROLL','NO.']);
+  const qc = findCol(headers, ['QUANTITY','QTY','METER','MTR','LENGTH','MTS']);
+  const lc = findCol(headers, ['LOT','BATCH','DYE LOT','LOT NO']);
+  const oc = findCol(headers, ['ORDER','PO','KAAN','REF']);
+  for (let i = hi+1; i < rows.length; i++) {
+    const row = rows[i];
+    const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
+    const rollNo = rc >= 0 ? row[rc] : '';
+    if (!qty && !rollNo) continue;
+    if (/^total/i.test(String(rollNo||''))) continue;
+    items.push({
+      description: dc >= 0 ? String(row[dc]||'').trim() : '',
+      roll_number: rollNo,
+      quantity_mts: qty,
+      lot: lc >= 0 ? String(row[lc]||'').trim() : '',
+      order_number: oc >= 0 ? String(row[oc]||'').trim() : '',
+      factory_name: factoryName,
+    });
+  }
+  return items;
+}
+
+// Parse one file — reads ALL sheets and extracts PI, PL, DPL data
+async function parseFile(file, hint, factoryName) {
+  // hint = 'pi' | 'pl' | 'dpl' | 'auto'
+  if (!file) return { pi_items: [], pl_items: [], dpl_items: [] };
+  try {
+    const sheets = await readAllSheets(file);
+    let pi_items = [], pl_items = [], dpl_items = [];
+
+    if (Object.keys(sheets).length === 1) {
+      // Single sheet — use hint or auto-detect
+      const rows = Object.values(sheets)[0];
+      const type = hint === 'auto' ? detectSheetType(rows) : hint;
+      if (type === 'pi' || type === 'auto') pi_items = extractPI(rows, factoryName);
+      if (type === 'pl') pl_items = extractPL(rows);
+      if (type === 'dpl') dpl_items = extractDPL(rows, factoryName);
+      // If auto PI but no results, try as PL
+      if (!pi_items.length && !pl_items.length) pl_items = extractPL(rows);
+    } else {
+      // Multiple sheets — classify each one
+      Object.entries(sheets).forEach(([name, rows]) => {
+        const type = detectSheetType(rows);
+        if (type === 'dpl' && !dpl_items.length) dpl_items = extractDPL(rows, factoryName);
+        else if (type === 'pl' && !pl_items.length) pl_items = extractPL(rows);
+        else if (type === 'pi' && !pi_items.length) pi_items = extractPI(rows, factoryName);
+      });
+      // Fallback: if still no PI, try all sheets
+      if (!pi_items.length) {
+        Object.values(sheets).forEach(rows => {
+          if (!pi_items.length) {
+            const items = extractPI(rows, factoryName);
+            if (items.length) pi_items = items;
+          }
+        });
+      }
+    }
+    return { pi_items, pl_items, dpl_items };
+  } catch(err) {
+    console.error('File parse error:', err);
+    return { pi_items: [], pl_items: [], dpl_items: [], error: err.message };
+  }
+}
+
 function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
@@ -1190,70 +1375,87 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
     via: 'OCEAN FREIGHT', goods_description: 'FABRIC',
     container_number: '', bl_number: '', misc_charges: 0, status: 'issued'
   });
-  const [factoryFiles, setFactoryFiles] = useState([{ id: 1, file: null }]);
+  // Each factory has 3 optional file slots
+  const [factories, setFactories] = useState([{
+    id: 1, name: '', piFile: null, plFile: null, dplFile: null
+  }]);
   const [items, setItems] = useState([]);
   const [dplItems, setDplItems] = useState([]);
   const [parsing, setParsing] = useState(false);
+  const [parseLog, setParseLog] = useState([]);
   const [saving, setSaving] = useState(false);
   const [generatedDocs, setGeneratedDocs] = useState([]);
   const [missingCount, setMissingCount] = useState(0);
 
   const custCode = getCustomerCode(form.customer_id, customers);
-  const hasCCPrices = items.some(i => i.cc_price && parseFloat(i.cc_price) > 0 && parseFloat(i.cc_price) !== parseFloat(i.unit_price));
+  const hasCCPrices = items.some(i => i.cc_price && +i.cc_price > 0 && +i.cc_price !== +i.unit_price);
   const actualTotal = items.reduce((s,i) => s + ((+i.quantity||0) * (+i.unit_price||0)), 0) + (+form.misc_charges||0);
   const ccTotal = items.reduce((s,i) => s + ((+i.quantity||0) * (+i.cc_price||+i.unit_price||0)), 0) + (+form.misc_charges||0);
 
-  function addFile() { setFactoryFiles(p => [...p, { id: Date.now(), file: null }]); }
-  function removeFile(id) { setFactoryFiles(p => p.filter(f => f.id !== id)); }
-  function setFile(id, file) { setFactoryFiles(p => p.map(f => f.id === id ? {...f, file} : f)); }
+  function addFactory() {
+    setFactories(p => [...p, { id: Date.now(), name: '', piFile: null, plFile: null, dplFile: null }]);
+  }
+  function removeFactory(id) { setFactories(p => p.filter(f => f.id !== id)); }
+  function updateFactory(id, field, val) { setFactories(p => p.map(f => f.id === id ? {...f, [field]: val} : f)); }
   function upItem(i, field, val) { setItems(p => p.map((item, idx) => idx === i ? {...item, [field]: val} : item)); }
 
-  async function parseFile(file) {
-    return new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onload = async e => {
-        try {
-          const base64 = e.target.result.split(',')[1];
-          const resp = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: 'claude-sonnet-4-20250514',
-              max_tokens: 3000,
-              messages: [{ role: 'user', content: [
-                { type: 'document', source: { type: 'base64', media_type: file.type || 'application/octet-stream', data: base64 } },
-                { type: 'text', text: 'This is a factory shipping document for textiles. It may have multiple sheets (PI, PL, DPL). Extract ALL data and return ONLY this JSON, no markdown:\n{"factory_name":"","pi_items":[{"description":"","color":"","quantity":0,"factory_price":0,"net_weight":0,"gross_weight":0,"order_number":""}],"pl_items":[{"description":"","color":"","quantity":0,"packages":0,"net_weight":0,"gross_weight":0,"cbm":0,"order_number":""}],"dpl_items":[{"description":"","roll_number":1,"quantity_mts":0,"lot":"","order_number":""}]}\nIf a section is not present, return empty array.' }
-              ]}]
-            })
-          });
-          const data = await resp.json();
-          const text = (data.content && data.content[0] && data.content[0].text) || '{}';
-          resolve(JSON.parse(text.replace(/```json|```/g, '').trim()));
-        } catch(err) {
-          resolve({ factory_name: file.name, pi_items: [], pl_items: [], dpl_items: [] });
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
   async function processAllFiles() {
-    const valid = factoryFiles.filter(f => f.file);
-    if (!valid.length) { alert('Please upload at least one factory document'); return; }
+    const hasAny = factories.some(f => f.piFile || f.plFile || f.dplFile);
+    if (!hasAny) { alert('Please upload at least one factory document'); return; }
     setParsing(true);
+    const log = [];
+    const appendLog = (msg) => { log.push(msg); setParseLog([...log]); };
+
     try {
-      const results = await Promise.all(valid.map(f => parseFile(f.file)));
       let allItems = [], allDpl = [];
-      results.forEach(r => {
-        const factory = r.factory_name || 'Unknown';
-        (r.pi_items || []).forEach(item => {
-          const plItem = (r.pl_items || []).find(p => p.description && item.description && p.description.toLowerCase().includes(item.description.toLowerCase().split(' ')[0])) || {};
+
+      for (const factory of factories) {
+        const fname = factory.name || ('Factory ' + (factories.indexOf(factory)+1));
+        appendLog('--- ' + fname + ' ---');
+
+        // Track what we extracted per factory
+        let piItems = [], plItems = [], dplExtracted = [];
+
+        // Slot 1: PI file
+        if (factory.piFile) {
+          appendLog('Reading PI file: ' + factory.piFile.name);
+          const r = await parseFile(factory.piFile, 'pi', fname);
+          piItems = r.pi_items || [];
+          if (!plItems.length) plItems = r.pl_items || [];
+          if (!dplExtracted.length) dplExtracted = r.dpl_items || [];
+          appendLog('  → ' + piItems.length + ' invoice items' + (r.pl_items.length ? ', ' + r.pl_items.length + ' PL items' : '') + (r.dpl_items.length ? ', ' + r.dpl_items.length + ' DPL rolls' : ''));
+        }
+
+        // Slot 2: PL file
+        if (factory.plFile) {
+          appendLog('Reading PL file: ' + factory.plFile.name);
+          const r = await parseFile(factory.plFile, 'pl', fname);
+          if (r.pl_items.length) plItems = r.pl_items;
+          if (!piItems.length && r.pi_items.length) piItems = r.pi_items;
+          if (!dplExtracted.length && r.dpl_items.length) dplExtracted = r.dpl_items;
+          appendLog('  → ' + r.pl_items.length + ' PL items');
+        }
+
+        // Slot 3: DPL file
+        if (factory.dplFile) {
+          appendLog('Reading DPL file: ' + factory.dplFile.name);
+          const r = await parseFile(factory.dplFile, 'dpl', fname);
+          dplExtracted = r.dpl_items || [];
+          appendLog('  → ' + dplExtracted.length + ' DPL rolls');
+        }
+
+        // Merge PI + PL for this factory
+        piItems.forEach(item => {
+          const plItem = plItems.find(p =>
+            p.description && item.description &&
+            p.description.toUpperCase().includes(item.description.toUpperCase().split(' ')[0])
+          ) || {};
           const priceInfo = lookupPrice(item.description, custCode);
           allItems.push({
             description: item.description || '',
             color: item.color || '',
             quantity: item.quantity || 0,
-            factory_name: factory,
+            factory_name: fname,
             factory_price: item.factory_price || 0,
             unit_price: priceInfo && priceInfo.customer_price ? String(priceInfo.customer_price) : '',
             cc_price: '',
@@ -1265,14 +1467,28 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
             price_auto: !!(priceInfo && priceInfo.customer_price),
           });
         });
-        (r.dpl_items || []).forEach(item => allDpl.push({...item, factory_name: factory}));
-      });
-      if (!allItems.length) allItems = [{ description:'',color:'',quantity:0,factory_name:'',factory_price:0,unit_price:'',cc_price:'',net_weight:0,gross_weight:0,packages:0,cbm:0,order_number:'',price_auto:false }];
+
+        dplExtracted.forEach(item => allDpl.push({...item, factory_name: fname}));
+      }
+
+      appendLog('');
+      appendLog('Total: ' + allItems.length + ' items, ' + allDpl.length + ' DPL rolls');
+
+      if (!allItems.length) {
+        appendLog('⚠️ No items extracted. Please enter manually or check file format.');
+        allItems = [{ description:'',color:'',quantity:0,factory_name:factories[0]?.name||'',factory_price:0,unit_price:'',cc_price:'',net_weight:0,gross_weight:0,packages:0,cbm:0,order_number:'',price_auto:false }];
+      }
+
       setItems(allItems);
       setDplItems(allDpl);
       setMissingCount(allItems.filter(i => i.description && !i.unit_price).length);
       setStep(3);
-    } catch(e) { alert('Error reading files. Enter manually.'); setStep(3); }
+    } catch(e) {
+      console.error(e);
+      appendLog('Error: ' + e.message);
+      setItems([{ description:'',color:'',quantity:0,factory_name:'',factory_price:0,unit_price:'',cc_price:'',net_weight:0,gross_weight:0,packages:0,cbm:0,order_number:'',price_auto:false }]);
+      setStep(3);
+    }
     setParsing(false);
   }
 
@@ -1289,39 +1505,32 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
     }
     const { data: custData } = await d.from('customers').select('*').eq('id', form.customer_id).single();
 
-    // Save actual invoice
     const { data: inv } = await d.from('commercial_invoices').insert({
       ...form, entity, invoice_type: 'actual',
       subtotal: actualTotal - (+form.misc_charges||0),
-      total_amount: actualTotal, due_date,
-      misc_charges: +form.misc_charges||0
+      total_amount: actualTotal, due_date, misc_charges: +form.misc_charges||0
     }).select().single();
     if (!inv) { setSaving(false); return; }
 
     const lineItems = items.filter(i => i.description).map((item, idx) => ({
-      invoice_id: inv.id, line_no: idx+1,
-      description: item.description, color: item.color,
+      invoice_id: inv.id, line_no: idx+1, description: item.description, color: item.color,
       quantity: +item.quantity||0, unit_price: +item.unit_price||0,
       net_weight: +item.net_weight||null, gross_weight: +item.gross_weight||null,
     }));
     if (lineItems.length) await d.from('invoice_items').insert(lineItems);
 
-    // Save CC invoice
     if (hasCCPrices) {
       const { data: cc } = await d.from('commercial_invoices').insert({
         ...form, entity, invoice_type: 'customs_clearance',
         invoice_number: form.invoice_number + '-CC',
-        subtotal: ccTotal - (+form.misc_charges||0),
-        total_amount: ccTotal, due_date,
-        paired_invoice_id: inv.id,
-        cc_vs_actual_diff: ccTotal - actualTotal,
+        subtotal: ccTotal - (+form.misc_charges||0), total_amount: ccTotal, due_date,
+        paired_invoice_id: inv.id, cc_vs_actual_diff: ccTotal - actualTotal,
         misc_charges: +form.misc_charges||0
       }).select().single();
       if (cc) {
         const ccLines = items.filter(i => i.description).map((item, idx) => ({
-          invoice_id: cc.id, line_no: idx+1, description: item.description,
-          color: item.color, quantity: +item.quantity||0,
-          unit_price: +item.cc_price||+item.unit_price||0,
+          invoice_id: cc.id, line_no: idx+1, description: item.description, color: item.color,
+          quantity: +item.quantity||0, unit_price: +item.cc_price||+item.unit_price||0,
           net_weight: +item.net_weight||null, gross_weight: +item.gross_weight||null,
         }));
         if (ccLines.length) await d.from('invoice_items').insert(ccLines);
@@ -1329,125 +1538,96 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
       }
     }
 
-    // Build documents
     const docs = [];
     const sep = '─'.repeat(90);
-    const custAddr = [custData && custData.name, custData && custData.address_line1, custData && custData.city, custData && custData.tax_id ? 'RFC/TAX ID: ' + custData.tax_id : ''].filter(Boolean).join('\n');
+    const custName = custData && custData.name || '';
+    const custAddr = [custData && custData.address_line1, custData && custData.city, custData && custData.tax_id ? 'RFC/TAX ID: ' + custData.tax_id : ''].filter(Boolean).join(' | ');
 
     function buildCI(invNum, lineData, total, isCC) {
-      const header = [co.name, co.address, co.taxId ? 'TAX ID: ' + co.taxId : '', '',
-        isCC ? 'COMMERCIAL INVOICE\n(FOR CUSTOMS CLEARANCE PURPOSE ONLY)' : 'COMMERCIAL INVOICE', '',
-        'TO:', custAddr, '',
-        'INVOICE NO: ' + invNum, 'DATE: ' + form.invoice_date,
-        isCC ? 'FOR CUSTOMS CLEARANCE USE ONLY - NOT FOR PAYMENT' : '',
-        'PAYMENT: ' + form.payment_terms,
-        'VIA: ' + form.via + ' | ' + form.shipping_terms,
-        form.container_number ? 'CONTAINER: ' + form.container_number : '',
-        form.bl_number ? 'B/L: ' + form.bl_number : '',
-        form.port_of_destination ? 'DESTINATION: ' + form.port_of_destination : '',
-        '', sep,
-        'DESCRIPTION                              COLOR      QTY(Mts)  UNIT PRICE  AMOUNT      NET WT   GROSS WT',
-        sep,
-      ].filter(l => l !== '').join('\n');
       const rows = lineData.map(i => {
-        const desc = (i.description + '').padEnd(41);
-        const col = (i.color || '').padEnd(11);
-        const qty = String(fmtNum(+i.quantity||0,1)).padEnd(10);
+        const d = String(i.description||'').substring(0,36).padEnd(37);
+        const c = String(i.color||'').substring(0,10).padEnd(11);
+        const q = String(fmtNum(+i.quantity||0,1)).padEnd(10);
         const up = String(fmtNum(+i.unit_price||0,4)).padEnd(12);
         const amt = String(fmtNum((+i.quantity||0)*(+i.unit_price||0),2)).padEnd(12);
         const nw = String(fmtNum(+i.net_weight||0,1)).padEnd(9);
         const gw = fmtNum(+i.gross_weight||0,1);
-        return desc + col + qty + up + amt + nw + gw;
+        return d+c+q+up+amt+nw+gw;
       }).join('\n');
-      const footer = [sep,
-        'TOTAL: ' + fmtNum(lineData.reduce((s,i)=>s+(+i.quantity||0),0),0) + ' Mts' + ' '.repeat(23) + fmtUSD(total),
-        form.misc_charges > 0 ? 'Includes misc charges: ' + fmtUSD(+form.misc_charges) : '',
-        '', 'BANKING DETAILS:', 'Company: ' + co.name,
-        'Account No: ' + co.bankAccount, 'Clearing Code: ' + co.clearingCode,
-        'Bank: ' + co.bankName, 'Bank Address: ' + co.bankAddress, 'Swift: ' + co.swift,
+      return [
+        co.name, co.address, co.taxId ? 'TAX ID: '+co.taxId : '',
+        '', isCC ? 'COMMERCIAL INVOICE (FOR CUSTOMS CLEARANCE ONLY)' : 'COMMERCIAL INVOICE',
+        '', 'TO: '+custName, custAddr,
+        '', 'INVOICE NO: '+invNum, 'DATE: '+form.invoice_date,
+        isCC ? 'FOR CUSTOMS CLEARANCE USE ONLY - NOT FOR PAYMENT' : '',
+        'PAYMENT: '+form.payment_terms, 'VIA: '+form.via+' | '+form.shipping_terms,
+        form.container_number ? 'CONTAINER: '+form.container_number : '',
+        form.bl_number ? 'B/L: '+form.bl_number : '',
+        form.port_of_destination ? 'PORT OF DESTINATION: '+form.port_of_destination : '',
+        '', sep,
+        'DESCRIPTION                          COLOR      QTY(Mts)  UNIT PRICE  AMOUNT      NET WT   GROSS WT',
+        sep, rows, sep,
+        'TOTAL: '+fmtNum(lineData.reduce((s,i)=>s+(+i.quantity||0),0),0)+' Mts'+' '.repeat(18)+fmtUSD(total),
+        form.misc_charges > 0 ? 'Includes misc charges: '+fmtUSD(+form.misc_charges) : '',
+        '', 'BANKING DETAILS:', 'Company: '+co.name, 'Account No: '+co.bankAccount,
+        'Clearing Code: '+co.clearingCode, 'Bank: '+co.bankName, 'Swift: '+co.swift,
         '', 'For and on behalf of', co.name, '', '_________________________', 'Authorized Signature(s)'
       ].filter(l => l !== '').join('\n');
-      return header + '\n' + rows + '\n' + footer;
     }
 
-    // Actual CI
-    const actualItems = items.filter(i => i.description).map(i => ({...i, unit_price: +i.unit_price||0}));
-    docs.push({ label: '📄 Commercial Invoice — ' + form.invoice_number, content: buildCI(form.invoice_number, actualItems, actualTotal, false), filename: form.invoice_number + '_CI_Actual.txt' });
+    docs.push({ label: '📄 Commercial Invoice — '+form.invoice_number, content: buildCI(form.invoice_number, items.filter(i=>i.description).map(i=>({...i,unit_price:+i.unit_price||0})), actualTotal, false), filename: form.invoice_number+'_CI_Actual.txt' });
 
-    // CC CI + Credit Note
     if (hasCCPrices) {
-      const ccItems = items.filter(i => i.description).map(i => ({...i, unit_price: +i.cc_price||+i.unit_price||0}));
-      docs.push({ label: '📄 CC Invoice — ' + form.invoice_number + '-CC', content: buildCI(form.invoice_number+'-CC', ccItems, ccTotal, true), filename: form.invoice_number + '_CI_CC.txt' });
+      docs.push({ label: '📄 CC Invoice — '+form.invoice_number+'-CC', content: buildCI(form.invoice_number+'-CC', items.filter(i=>i.description).map(i=>({...i,unit_price:+i.cc_price||+i.unit_price||0})), ccTotal, true), filename: form.invoice_number+'_CI_CC.txt' });
       const diff = ccTotal - actualTotal;
-      const cnContent = [co.name, co.address, '', 'CREDIT NOTE', '',
-        'TO: ' + (custData && custData.name || ''), '',
-        'DATE: ' + form.invoice_date,
-        'REF INVOICE: ' + form.invoice_number,
-        'CC INVOICE: ' + form.invoice_number + '-CC', '',
-        sep,
-        'Difference: CC Invoice vs Actual Invoice     ' + fmtUSD(diff),
-        'CC Invoice: ' + fmtUSD(ccTotal) + '  -  Actual Invoice: ' + fmtUSD(actualTotal),
-        sep,
-        'TOTAL CREDIT: ' + fmtUSD(diff), '',
-        'This amount will be adjusted against your next payment.',
+      docs.push({ label: '📝 Credit Note — '+fmtUSD(diff), filename: form.invoice_number+'_CreditNote.txt', content: [
+        co.name, co.address, '', 'CREDIT NOTE', '', 'TO: '+custName, '',
+        'DATE: '+form.invoice_date, 'REF INVOICE: '+form.invoice_number, 'CC INVOICE: '+form.invoice_number+'-CC', '',
+        sep, 'Difference: CC Invoice vs Actual Invoice     '+fmtUSD(diff),
+        '(CC: '+fmtUSD(ccTotal)+' minus Actual: '+fmtUSD(actualTotal)+')', sep,
+        'TOTAL CREDIT: '+fmtUSD(diff), '', 'This amount will be adjusted against your next payment.',
         '', 'For and on behalf of', co.name
-      ].join('\n');
-      docs.push({ label: '📝 Credit Note — CC Difference ' + fmtUSD(diff), content: cnContent, filename: form.invoice_number + '_CreditNote.txt' });
+      ].join('\n') });
     }
 
-    // Packing List
-    const plSep = '─'.repeat(100);
-    const plContent = [co.name, co.address, '', 'PACKING LIST', '',
-      'INVOICE: ' + form.invoice_number, 'DATE: ' + form.invoice_date,
-      form.container_number ? 'CONTAINER: ' + form.container_number : '', '',
-      plSep,
-      'DESCRIPTION                  COLOR       QTY(Mts)  PKGS  NET WT    GROSS WT   CBM      ORDER NO.',
-      plSep,
-      ...items.filter(i => i.description).map(i => {
-        const d = (i.description+'').padEnd(29); const c = (i.color||'').padEnd(12);
-        const q = String(fmtNum(+i.quantity||0,1)).padEnd(10); const p = String(i.packages||'').padEnd(6);
-        const nw = String(fmtNum(+i.net_weight||0,1)).padEnd(10); const gw = String(fmtNum(+i.gross_weight||0,1)).padEnd(11);
-        const cbm = String(fmtNum(+i.cbm||0,3)).padEnd(9); const on = i.order_number||'';
-        return d+c+q+p+nw+gw+cbm+on;
+    const sep100 = '─'.repeat(100);
+    docs.push({ label: '📦 Packing List — '+form.invoice_number, filename: form.invoice_number+'_PL.txt', content: [
+      co.name, co.address, '', 'PACKING LIST', '',
+      'INVOICE: '+form.invoice_number, 'DATE: '+form.invoice_date,
+      form.container_number ? 'CONTAINER: '+form.container_number : '', '',
+      sep100, 'DESCRIPTION                  COLOR       QTY(Mts)  PKGS  NET WT    GROSS WT   CBM      ORDER NO.', sep100,
+      ...items.filter(i=>i.description).map(i => {
+        const d=String(i.description).substring(0,28).padEnd(29); const c=String(i.color||'').padEnd(12);
+        const q=String(fmtNum(+i.quantity||0,1)).padEnd(10); const p=String(i.packages||'').padEnd(6);
+        const nw=String(fmtNum(+i.net_weight||0,1)).padEnd(10); const gw=String(fmtNum(+i.gross_weight||0,1)).padEnd(11);
+        const cbm=String(fmtNum(+i.cbm||0,3)).padEnd(9); return d+c+q+p+nw+gw+cbm+(i.order_number||'');
       }),
-      plSep,
-      'TOTAL: ' + fmtNum(items.reduce((s,i)=>s+(+i.quantity||0),0),0) + ' Mts | ' +
-        items.reduce((s,i)=>s+(+i.packages||0),0) + ' Pkgs | ' +
-        'Net Wt: ' + fmtNum(items.reduce((s,i)=>s+(+i.net_weight||0),0),1) + ' kgs | ' +
-        'Gross Wt: ' + fmtNum(items.reduce((s,i)=>s+(+i.gross_weight||0),0),1) + ' kgs'
-    ].filter(l => l !== '').join('\n');
-    docs.push({ label: '📦 Packing List — ' + form.invoice_number, content: plContent, filename: form.invoice_number + '_PL.txt' });
+      sep100,
+      'TOTAL: '+fmtNum(items.reduce((s,i)=>s+(+i.quantity||0),0),0)+' Mts | '+items.reduce((s,i)=>s+(+i.packages||0),0)+' Pkgs | Net: '+fmtNum(items.reduce((s,i)=>s+(+i.net_weight||0),0),1)+' kgs | Gross: '+fmtNum(items.reduce((s,i)=>s+(+i.gross_weight||0),0),1)+' kgs'
+    ].filter(l=>l!=='').join('\n') });
 
-    // DPL
     if (dplItems.length > 0) {
-      const dplSep = '─'.repeat(80);
-      const dplContent = [co.name, co.address, '', 'DETAILED PACKING LIST', '',
-        'INVOICE: ' + form.invoice_number, 'DATE: ' + form.invoice_date, '',
-        dplSep,
-        'ORDER NO.    DESCRIPTION                     ROLL NO.   QTY(Mts)   LOT',
-        dplSep,
+      const sep80 = '─'.repeat(80);
+      docs.push({ label: '📋 Detailed Packing List — '+form.invoice_number, filename: form.invoice_number+'_DPL.txt', content: [
+        co.name, co.address, '', 'DETAILED PACKING LIST', '',
+        'INVOICE: '+form.invoice_number, 'DATE: '+form.invoice_date, '',
+        sep80, 'ORDER NO.    DESCRIPTION                     ROLL NO.   QTY(Mts)   LOT', sep80,
         ...dplItems.map(i => {
-          const on = String(i.order_number||'').padEnd(13);
-          const d = String(i.description||'').padEnd(32);
-          const r = String(i.roll_number||'').padEnd(11);
-          const q = String(fmtNum(+i.quantity_mts||0,1)).padEnd(11);
+          const on=String(i.order_number||'').padEnd(13); const d=String(i.description||'').substring(0,31).padEnd(32);
+          const r=String(i.roll_number||'').padEnd(11); const q=String(fmtNum(+i.quantity_mts||0,1)).padEnd(11);
           return on+d+r+q+(i.lot||'');
         }),
-        dplSep,
-        'TOTAL: ' + fmtNum(dplItems.reduce((s,i)=>s+(+i.quantity_mts||0),0),1) + ' Mts | ' + dplItems.length + ' Rolls'
-      ].join('\n');
-      docs.push({ label: '📋 Detailed Packing List — ' + form.invoice_number, content: dplContent, filename: form.invoice_number + '_DPL.txt' });
+        sep80, 'TOTAL: '+fmtNum(dplItems.reduce((s,i)=>s+(+i.quantity_mts||0),0),1)+' Mts | '+dplItems.length+' Rolls'
+      ].join('\n') });
     }
 
-    // Save to archive
     for (const doc of docs) {
       await d.from('document_archive').insert({
         doc_number: form.invoice_number,
-        doc_type: doc.filename.includes('CC') ? 'commercial_invoice_cc' : doc.filename.includes('DPL') ? 'detailed_packing_list' : doc.filename.includes('PL') ? 'packing_list' : doc.filename.includes('Credit') ? 'credit_note_cc_diff' : 'commercial_invoice_actual',
-        entity, doc_date: form.invoice_date,
-        financial_year: new Date(form.invoice_date).getFullYear(),
+        doc_type: doc.filename.includes('CI_CC') ? 'commercial_invoice_cc' : doc.filename.includes('DPL') ? 'detailed_packing_list' : doc.filename.includes('_PL') ? 'packing_list' : doc.filename.includes('Credit') ? 'credit_note_cc_diff' : 'commercial_invoice_actual',
+        entity, doc_date: form.invoice_date, financial_year: new Date(form.invoice_date).getFullYear(),
         counterparty_type: 'customer', counterparty_id: form.customer_id,
-        counterparty_name: custData && custData.name, amount: actualTotal, currency: 'USD',
+        counterparty_name: custName, amount: actualTotal, currency: 'USD',
         source_table: 'commercial_invoices', source_id: inv.id, file_name: doc.filename
       }).select();
     }
@@ -1478,8 +1658,6 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
           </div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>
-
-        {/* Progress bar */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
           {stepLabels.map((s, i) => (
             <div key={i} style={{ flex: 1, textAlign: 'center' }}>
@@ -1489,7 +1667,6 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
           ))}
         </div>
 
-        {/* STEP 1 — Invoice Details */}
         {step === 1 && (
           <>
             <div className="grid2">
@@ -1515,55 +1692,81 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-              <button className="btn btn-primary" onClick={() => { if (!form.invoice_number || !form.customer_id) { alert('Invoice number and customer required'); return; } setStep(2); }}>Next: Upload Factory Docs →</button>
+              <button className="btn btn-primary" onClick={() => { if (!form.invoice_number || !form.customer_id) { alert('Invoice number and customer required'); return; } setStep(2); }}>Next →</button>
             </div>
           </>
         )}
 
-        {/* STEP 2 — Upload Factory Documents */}
         {step === 2 && (
           <>
-            <div className="alert alert-info">📎 Upload one file per factory. Files can contain multiple sheets (PI, PL, DPL) — system reads all sheets automatically. Supported: PDF, Excel, Word, images.</div>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <div className="sh-title">Factory Documents</div>
-                <button className="btn btn-secondary btn-sm" onClick={addFile}>+ Add Another Factory</button>
-              </div>
-              {factoryFiles.map((ff, i) => (
-                <div key={ff.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--navy)', border: '1px solid var(--navy-border)', borderRadius: 10, marginBottom: 8 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', minWidth: 80 }}>Factory {i+1}</div>
-                  <input type="file" accept=".pdf,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg" onChange={e => setFile(ff.id, e.target.files[0])}
-                    style={{ flex: 1, background: 'transparent', border: '1px solid var(--navy-border)', borderRadius: 8, padding: '6px 10px', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'inherit' }} />
-                  {ff.file && <span className="badge bg" style={{ fontSize: 11 }}>✓ {ff.file.name}</span>}
-                  {factoryFiles.length > 1 && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => removeFile(ff.id)}>✕</button>}
-                </div>
-              ))}
+            <div className="alert alert-info" style={{ fontSize: 12 }}>
+              📎 Add one block per factory. Upload files in whichever slots apply — all slots are optional.<br/>
+              If factory sends everything in one file → upload in <strong>PI slot only</strong> (system reads all sheets).<br/>
+              If separate files → upload each in its own slot.
             </div>
-            <div style={{ margin: '14px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>— or —</div>
-            <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center' }}
-              onClick={() => { setItems([{ description:'',color:'',quantity:0,factory_name:'',factory_price:0,unit_price:'',cc_price:'',net_weight:0,gross_weight:0,packages:0,cbm:0,order_number:'',price_auto:false }]); setStep(3); }}>
-              ✏️ Enter items manually instead
+            {factories.map((factory, fi) => (
+              <div key={factory.id} style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-light)', minWidth: 70 }}>Factory {fi+1}</span>
+                  <input className="form-input" value={factory.name} onChange={e => updateFactory(factory.id, 'name', e.target.value)} placeholder="Factory name (e.g. Beyond, Feifan, Yuanbi)" style={{ flex: 1 }} />
+                  {factories.length > 1 && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => removeFactory(factory.id)}>✕</button>}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                  {[
+                    { key: 'piFile', label: '📄 Invoice (PI)', hint: 'PI/Invoice file or combined file' },
+                    { key: 'plFile', label: '📦 Packing List (PL)', hint: 'PL file if sent separately' },
+                    { key: 'dplFile', label: '📋 Detailed PL (DPL)', hint: 'DPL file if sent separately' },
+                  ].map(slot => (
+                    <div key={slot.key}>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 5 }}>{slot.label}</label>
+                      <input type="file" accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.png,.jpg,.jpeg"
+                        onChange={e => updateFactory(factory.id, slot.key, e.target.files[0])}
+                        style={{ width: '100%', background: 'var(--surface)', border: '1px dashed var(--navy-border)', borderRadius: 8, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer' }} />
+                      {factory[slot.key] && (
+                        <div style={{ fontSize: 10, color: 'var(--green)', marginTop: 3 }}>✓ {factory[slot.key].name}</div>
+                      )}
+                      {!factory[slot.key] && (
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>{slot.hint}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <button className="btn btn-secondary btn-sm" onClick={addFactory} style={{ width: '100%', justifyContent: 'center', marginBottom: 12 }}>
+              + Add Another Factory to this Shipment
             </button>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 20 }}>
+            {parseLog.length > 0 && (
+              <div style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontFamily: 'monospace', fontSize: 11, maxHeight: 150, overflowY: 'auto' }}>
+                {parseLog.map((line, i) => (
+                  <div key={i} style={{ color: line.startsWith('✓') || line.startsWith('Total') ? 'var(--green)' : line.startsWith('⚠') || line.startsWith('Error') ? 'var(--gold)' : line.startsWith('---') ? 'var(--accent-light)' : 'var(--text-muted)', padding: '1px 0' }}>{line}</div>
+                ))}
+              </div>
+            )}
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, marginBottom: 8 }}>— or —</div>
+            <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center', marginBottom: 16 }}
+              onClick={() => { setItems([{ description:'',color:'',quantity:0,factory_name:factories[0]?.name||'',factory_price:0,unit_price:'',cc_price:'',net_weight:0,gross_weight:0,packages:0,cbm:0,order_number:'',price_auto:false }]); setStep(3); }}>
+              ✏️ Skip upload — enter items manually
+            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
               <button className="btn btn-secondary" onClick={() => setStep(1)}>← Back</button>
-              <button className="btn btn-primary" onClick={processAllFiles} disabled={parsing || factoryFiles.every(f => !f.file)}>
-                {parsing ? '⏳ Reading factory documents...' : '📖 Read & Extract Items →'}
+              <button className="btn btn-primary" onClick={processAllFiles} disabled={parsing}>
+                {parsing ? '⏳ Reading files...' : '📖 Read & Extract Items →'}
               </button>
             </div>
           </>
         )}
 
-        {/* STEP 3 — Review & Set Prices */}
         {step === 3 && (
           <>
             {missingCount > 0 && (
-              <div className="alert alert-warn">⚠️ <strong>{missingCount} item(s)</strong> not found in price list — please fill in Customer Price manually. Factory price shown for reference.</div>
+              <div className="alert alert-warn">⚠️ <strong>{missingCount} item{missingCount>1?'s':''}</strong> have no price in our database — fill in Customer Price manually (red border). Factory price shown for reference.</div>
             )}
-            {missingCount === 0 && items.length > 0 && (
-              <div className="alert" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981' }}>✓ All prices auto-filled from price list! Review and adjust if needed.</div>
+            {missingCount === 0 && items.filter(i=>i.description).length > 0 && (
+              <div className="alert" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981' }}>✓ All prices found in price list! Review and adjust if needed.</div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div className="sh-title">Items — {items.length} items | {[...new Set(items.map(i=>i.factory_name).filter(Boolean))].length} factories</div>
+              <div className="sh-title">{items.length} items from {[...new Set(items.map(i=>i.factory_name).filter(Boolean))].length} factory/factories</div>
               <button className="btn btn-secondary btn-sm" onClick={() => setItems(p => [...p, { description:'',color:'',quantity:0,factory_name:'',factory_price:0,unit_price:'',cc_price:'',net_weight:0,gross_weight:0,packages:0,cbm:0,order_number:'',price_auto:false }])}>+ Add Row</button>
             </div>
             <div className="table-wrap" style={{ marginBottom: 14 }}>
@@ -1575,7 +1778,7 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
                     <th>Factory</th>
                     <th style={{ color: '#475569' }}>Factory Price</th>
                     <th style={{ color: 'var(--accent-light)' }}>Customer Price *</th>
-                    <th style={{ color: 'var(--gold)' }}>CC Price (optional)</th>
+                    <th style={{ color: 'var(--gold)' }}>CC Price</th>
                     <th>Qty (mts)</th>
                     <th>Net Wt</th>
                     <th>Gross Wt</th>
@@ -1589,19 +1792,17 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
                     <tr key={i} style={{ background: !item.unit_price && item.description ? 'rgba(239,68,68,0.05)' : undefined }}>
                       <td><input className="form-input" style={{ fontSize: 12, padding: '4px 7px', minWidth: 160 }} value={item.description} onChange={e => upItem(i,'description',e.target.value)} /></td>
                       <td><input className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 75 }} value={item.color} onChange={e => upItem(i,'color',e.target.value)} /></td>
-                      <td><input className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 90 }} value={item.factory_name} onChange={e => upItem(i,'factory_name',e.target.value)} /></td>
-                      <td>
-                        <input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 75, color: 'var(--text-muted)' }} value={item.factory_price} onChange={e => upItem(i,'factory_price',e.target.value)} step="0.0001" />
-                      </td>
+                      <td><input className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 85 }} value={item.factory_name} onChange={e => upItem(i,'factory_name',e.target.value)} /></td>
+                      <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 72, color: 'var(--text-muted)' }} value={item.factory_price} onChange={e => upItem(i,'factory_price',e.target.value)} step="0.0001" /></td>
                       <td>
                         <input type="number" className="form-input"
-                          style={{ fontSize: 12, padding: '4px 7px', width: 90, borderColor: !item.unit_price && item.description ? 'var(--red)' : item.price_auto ? 'var(--green)' : undefined }}
+                          style={{ fontSize: 12, padding: '4px 7px', width: 88, borderColor: !item.unit_price && item.description ? 'var(--red)' : item.price_auto ? 'var(--green)' : undefined }}
                           value={item.unit_price} onChange={e => upItem(i,'unit_price',e.target.value)} placeholder="Required" step="0.0001" />
                         {item.price_auto && <div style={{ fontSize: 9, color: 'var(--green)', marginTop: 1 }}>✓ price list</div>}
                       </td>
                       <td>
                         <input type="number" className="form-input"
-                          style={{ fontSize: 12, padding: '4px 7px', width: 90, borderColor: item.cc_price && +item.cc_price > 0 ? 'var(--gold)' : undefined }}
+                          style={{ fontSize: 12, padding: '4px 7px', width: 88, borderColor: item.cc_price && +item.cc_price > 0 ? 'var(--gold)' : undefined }}
                           value={item.cc_price} onChange={e => upItem(i,'cc_price',e.target.value)} placeholder="Optional" step="0.0001" />
                       </td>
                       <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 75 }} value={item.quantity} onChange={e => upItem(i,'quantity',e.target.value)} /></td>
@@ -1617,18 +1818,18 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
                   <tr>
                     <td colSpan={4} style={{ textAlign: 'right', fontWeight: 600, padding: '10px 13px', color: 'var(--text-primary)' }}>Actual Total:</td>
                     <td style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--green)', padding: '10px 13px' }}>{fmtUSD(actualTotal)}</td>
-                    <td style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--gold)', padding: '10px 13px' }}>{hasCCPrices ? 'CC: ' + fmtUSD(ccTotal) : '—'}</td>
+                    <td style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--gold)', padding: '10px 13px' }}>{hasCCPrices ? 'CC: '+fmtUSD(ccTotal) : '—'}</td>
                     <td colSpan={6} />
                   </tr>
                 </tfoot>
               </table>
             </div>
             {hasCCPrices && (
-              <div className="alert alert-warn">⚠️ CC prices entered. Will generate: Actual CI + CC CI + Credit Note ({fmtUSD(ccTotal - actualTotal)})</div>
+              <div className="alert alert-warn">⚠️ CC prices entered. Will generate: Actual CI + CC CI + Credit Note for {fmtUSD(ccTotal - actualTotal)}</div>
             )}
             {dplItems.length > 0 && (
               <div style={{ marginBottom: 14, padding: '10px 14px', background: 'var(--navy)', borderRadius: 10, border: '1px solid var(--navy-border)' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>📋 DPL: {dplItems.length} rolls extracted — will be included in generated documents</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>📋 DPL: {dplItems.length} rolls extracted — will be included</div>
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
@@ -1640,7 +1841,6 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
           </>
         )}
 
-        {/* STEP 4 — Documents Ready */}
         {step === 4 && (
           <>
             <div style={{ textAlign: 'center', padding: '20px 0 16px' }}>
