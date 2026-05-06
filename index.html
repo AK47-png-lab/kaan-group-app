@@ -1103,6 +1103,7 @@ function Invoices() {
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('actual');
   const [showNew, setShowNew] = useState(false);
+  const [showCN, setShowCN] = useState(null); // invoice to raise CN for
 
   useEffect(() => { load(); }, [entity, filterType]);
 
@@ -1115,6 +1116,20 @@ function Invoices() {
     setInvoices(r1.data || []);
     setCustomers(r2.data || []);
     setLoading(false);
+  }
+
+  async function deleteInvoice(inv) {
+    if (!confirm(`Delete invoice ${inv.invoice_number}?\n\nThis will permanently delete the invoice and all its line items from the database. This cannot be undone.`)) return;
+    const d = db(entity);
+    await d.from('invoice_items').delete().eq('invoice_id', inv.id);
+    await d.from('document_archive').delete().eq('doc_number', inv.invoice_number);
+    await d.from('commercial_invoices').delete().eq('id', inv.id);
+    load();
+  }
+
+  async function changeStatus(inv, status) {
+    await db(entity).from('commercial_invoices').update({ status }).eq('id', inv.id);
+    setInvoices(p => p.map(i => i.id === inv.id ? {...i, status} : i));
   }
 
   const STATUS_CLS = { draft: 'bgr', issued: 'bb', partial_paid: 'by', paid: 'bg', overdue: 'br', cancelled: 'bgr' };
@@ -1137,7 +1152,7 @@ function Invoices() {
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Invoice No.</th><th>Customer</th><th>Date</th><th>Sailing Date</th><th>Due Date</th><th>Amount</th><th>Balance Due</th><th>Status</th><th>CC Diff</th></tr></thead>
+          <thead><tr><th>Invoice No.</th><th>Customer</th><th>Date</th><th>Sailing</th><th>Due Date</th><th>Amount</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {loading ? <tr><td colSpan={9}><div className="empty">Loading...</div></td></tr>
               : invoices.map(inv => (
@@ -1148,9 +1163,26 @@ function Invoices() {
                   <td>{fmtDate(inv.sailing_date)}</td>
                   <td style={{ color: inv.status === 'overdue' ? 'var(--red)' : undefined }}>{fmtDate(inv.due_date)}</td>
                   <td className="td-amt">{fmtUSD(inv.total_amount)}</td>
-                  <td className="td-amt" style={{ fontWeight: 600 }}>{fmtUSD((inv.total_amount || 0) - (inv.amount_paid || 0))}</td>
-                  <td><span className={`badge ${STATUS_CLS[inv.status] || 'bgr'}`}>{inv.status?.replace(/_/g, ' ')}</span></td>
-                  <td>{inv.cc_vs_actual_diff > 0 && <span className={`badge ${inv.credit_note_issued ? 'bg' : 'by'}`}>{inv.credit_note_issued ? '✓ CN' : `Pending $${fmt(inv.cc_vs_actual_diff, 0)}`}</span>}</td>
+                  <td className="td-amt" style={{ fontWeight: 600 }}>{fmtUSD((inv.total_amount||0)-(inv.amount_paid||0))}</td>
+                  <td>
+                    <select className="form-input" style={{ fontSize: 11, padding: '3px 6px', width: 110 }}
+                      value={inv.status} onChange={e => changeStatus(inv, e.target.value)}>
+                      <option value="issued">Issued</option>
+                      <option value="partial_paid">Partial Paid</option>
+                      <option value="paid">Paid</option>
+                      <option value="overdue">Overdue</option>
+                      <option value="disputed">Disputed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: 'var(--accent-light)' }}
+                        title="Raise Credit Note" onClick={() => setShowCN(inv)}>📝 CN</button>
+                      <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: 'var(--red)' }}
+                        title="Delete Invoice" onClick={() => deleteInvoice(inv)}>🗑</button>
+                    </div>
+                  </td>
                 </tr>
               ))
             }
@@ -1158,6 +1190,162 @@ function Invoices() {
         </table>
       </div>
       {showNew && <NewInvoiceModal customers={customers} entity={entity} filterType={filterType} onClose={() => setShowNew(false)} onSaved={load} />}
+      {showCN && <CreditNoteModal invoice={showCN} customers={customers} entity={entity} onClose={() => setShowCN(null)} onSaved={load} />}
+    </div>
+  );
+}
+
+// ─── CREDIT NOTE MODAL ───────────────────────────────────────
+function CreditNoteModal({ invoice, customers, entity, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    cn_type: 'claim',
+    amount: '',
+    description: '',
+    cn_date: today(),
+    raise_factory_dn: false,
+    factory_id: '',
+    factory_dn_description: '',
+  });
+  const [factories, setFactories] = useState([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    db(entity).from('factories').select('id,name,short_name').order('name').then(r => setFactories(r.data || []));
+    // Pre-fill for CC diff type
+    if (invoice.cc_vs_actual_diff > 0 && !invoice.credit_note_issued) {
+      setForm(f => ({...f, cn_type: 'cc_actual_difference', amount: String(invoice.cc_vs_actual_diff), description: `CC Invoice vs Actual Invoice difference — ${invoice.invoice_number}`}));
+    }
+  }, []);
+
+  async function save() {
+    if (!form.amount || !form.description) { alert('Amount and description required'); return; }
+    setSaving(true);
+    const d = db(entity);
+    const cnRef = 'KAANCN' + Date.now();
+
+    // Create credit note to customer
+    const { data: cn } = await d.from('credit_notes').insert({
+      cn_number: cnRef,
+      customer_id: invoice.customer_id,
+      invoice_id: invoice.id,
+      entity,
+      cn_date: form.cn_date,
+      cn_type: form.cn_type,
+      amount: parseFloat(form.amount),
+      outstanding_amount: parseFloat(form.amount),
+      applied_amount: 0,
+      description: form.description,
+      status: 'open'
+    }).select().single();
+
+    // Mark CC CN as issued if applicable
+    if (form.cn_type === 'cc_actual_difference') {
+      await d.from('commercial_invoices').update({ credit_note_issued: true }).eq('id', invoice.id);
+    }
+
+    // Optionally create debit note to factory
+    if (form.raise_factory_dn && form.factory_id) {
+      await d.from('factory_debit_notes').insert({
+        dn_number: 'KAANDN' + Date.now(),
+        factory_id: form.factory_id,
+        entity,
+        dn_date: form.cn_date,
+        amount: parseFloat(form.amount),
+        description: form.factory_dn_description || form.description,
+        claim_reason: form.description,
+        status: 'issued'
+      });
+    }
+
+    // Save to archive
+    await d.from('document_archive').insert({
+      doc_number: cnRef, doc_type: 'credit_note_claim',
+      entity, doc_date: form.cn_date,
+      financial_year: new Date(form.cn_date).getFullYear(),
+      counterparty_type: 'customer', counterparty_id: invoice.customer_id,
+      amount: parseFloat(form.amount), currency: 'USD',
+      source_table: 'credit_notes', source_id: cn && cn.id, file_name: cnRef + '.txt'
+    });
+
+    onSaved();
+    onClose();
+    setSaving(false);
+  }
+
+  const CN_TYPES = [
+    { value: 'early_payment_discount', label: 'Early Payment Discount (1%)' },
+    { value: 'cc_actual_difference', label: 'CC vs Actual Invoice Difference' },
+    { value: 'claim', label: 'Claim (quality / quantity / other)' },
+  ];
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal modal-sm">
+        <div className="modal-hdr">
+          <div>
+            <div className="modal-title">Raise Credit Note to Customer</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Ref: {invoice.invoice_number} — {invoice.customers?.name || ''}</div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Credit Note Type</label>
+          <select className="form-input" value={form.cn_type} onChange={e => setForm({...form, cn_type: e.target.value})}>
+            {CN_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </div>
+
+        <div className="grid2">
+          <div className="form-group">
+            <label className="form-label">CN Date</label>
+            <input type="date" className="form-input" value={form.cn_date} onChange={e => setForm({...form, cn_date: e.target.value})} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Amount (USD) *</label>
+            <input type="number" className="form-input" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} step="0.01"
+              placeholder={invoice.cc_vs_actual_diff > 0 ? String(invoice.cc_vs_actual_diff) : ''} />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Description *</label>
+          <textarea className="form-input" value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={3}
+            placeholder="Describe the reason for this credit note..." />
+        </div>
+
+        <div style={{ padding: '12px 14px', background: 'var(--navy)', borderRadius: 10, border: '1px solid var(--navy-border)', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: form.raise_factory_dn ? 12 : 0 }}>
+            <input type="checkbox" id="raiseDN" checked={form.raise_factory_dn} onChange={e => setForm({...form, raise_factory_dn: e.target.checked})} />
+            <label htmlFor="raiseDN" style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', cursor: 'pointer' }}>
+              Also raise Debit Note to Factory (claim back from factory)
+            </label>
+          </div>
+          {form.raise_factory_dn && (
+            <>
+              <div className="form-group" style={{ marginBottom: 10 }}>
+                <label className="form-label">Factory</label>
+                <select className="form-input" value={form.factory_id} onChange={e => setForm({...form, factory_id: e.target.value})}>
+                  <option value="">Select factory...</option>
+                  {factories.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Factory DN Description</label>
+                <input className="form-input" value={form.factory_dn_description} onChange={e => setForm({...form, factory_dn_description: e.target.value})}
+                  placeholder="Leave blank to use same description as CN" />
+              </div>
+            </>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>
+            {saving ? 'Saving...' : form.raise_factory_dn ? 'Raise CN + Factory DN →' : 'Raise Credit Note →'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1233,6 +1421,19 @@ function detectSheetType(rows) {
 }
 
 // Extract PI items from rows
+// Patterns that indicate a row is NOT a fabric item
+const SKIP_PATTERNS = /^(total|grand|sub.?total|net weight|gross weight|packed|bank|beneficiary|account|swift|address|note:|remark|payment|shipment|delivery|tel:|fax:|email:|dear|regards|page|invoice no|date:|ref:|from:|to:|attn|please|kindly|enclosed|forwarded|signed|authorized|for and on)/i;
+
+function isValidItem(desc, qty, price) {
+  if (!desc) return false;
+  if (SKIP_PATTERNS.test(desc)) return false;
+  // Must have either a numeric quantity OR a numeric price to be a real item
+  if (qty === 0 && price === 0) return false;
+  // Skip if description looks like a label/header (too long with no numbers)
+  if (desc.length > 80 && !/\d/.test(desc)) return false;
+  return true;
+}
+
 function extractPI(rows, factoryName) {
   const items = [];
   const hi = findHeaderRow(rows);
@@ -1247,10 +1448,9 @@ function extractPI(rows, factoryName) {
   for (let i = hi+1; i < rows.length; i++) {
     const row = rows[i];
     const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
-    if (!desc || /^total/i.test(desc) || /^grand/i.test(desc) || /^sub/i.test(desc)) continue;
     const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
     const price = pc >= 0 ? parseFloat(row[pc]) || 0 : 0;
-    if (!desc && qty === 0) continue;
+    if (!isValidItem(desc, qty, price)) continue;
     items.push({
       description: desc,
       color: cc >= 0 ? String(row[cc]||'').trim() : '',
@@ -1265,7 +1465,6 @@ function extractPI(rows, factoryName) {
   return items;
 }
 
-// Extract PL items from rows
 function extractPL(rows) {
   const items = [];
   const hi = findHeaderRow(rows);
@@ -1281,12 +1480,14 @@ function extractPL(rows) {
   for (let i = hi+1; i < rows.length; i++) {
     const row = rows[i];
     const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
-    if (!desc || /^total/i.test(desc) || /^grand/i.test(desc)) continue;
+    const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
+    const pkg = pkc >= 0 ? parseFloat(row[pkc]) || 0 : 0;
+    if (!isValidItem(desc, qty, pkg)) continue;
     items.push({
       description: desc,
       color: cc >= 0 ? String(row[cc]||'').trim() : '',
-      quantity: qc >= 0 ? parseFloat(row[qc]) || 0 : 0,
-      packages: pkc >= 0 ? parseFloat(row[pkc]) || 0 : 0,
+      quantity: qty,
+      packages: pkg,
       net_weight: nwc >= 0 ? parseFloat(row[nwc]) || 0 : 0,
       gross_weight: gwc >= 0 ? parseFloat(row[gwc]) || 0 : 0,
       cbm: cbmc >= 0 ? parseFloat(row[cbmc]) || 0 : 0,
@@ -1296,7 +1497,6 @@ function extractPL(rows) {
   return items;
 }
 
-// Extract DPL items from rows
 function extractDPL(rows, factoryName) {
   const items = [];
   const hi = findHeaderRow(rows);
@@ -1309,9 +1509,9 @@ function extractDPL(rows, factoryName) {
   for (let i = hi+1; i < rows.length; i++) {
     const row = rows[i];
     const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
-    const rollNo = rc >= 0 ? row[rc] : '';
+    const rollNo = rc >= 0 ? String(row[rc]||'').trim() : '';
     if (!qty && !rollNo) continue;
-    if (/^total/i.test(String(rollNo||''))) continue;
+    if (SKIP_PATTERNS.test(rollNo) || /^total/i.test(rollNo)) continue;
     items.push({
       description: dc >= 0 ? String(row[dc]||'').trim() : '',
       roll_number: rollNo,
@@ -1366,6 +1566,72 @@ async function parseFile(file, hint, factoryName) {
   }
 }
 
+// ─── FACTORY SEARCH COMPONENT ────────────────────────────────
+function FactorySearch({ value, onChange, factoryList, style }) {
+  const [query, setQuery] = useState(value || '');
+  const [open, setOpen] = useState(false);
+
+  const filtered = query.length === 0
+    ? factoryList
+    : factoryList.filter(f =>
+        f.name.toUpperCase().includes(query.toUpperCase()) ||
+        (f.short_name && f.short_name.toUpperCase().includes(query.toUpperCase())) ||
+        (f.code && f.code.toUpperCase().includes(query.toUpperCase()))
+      );
+
+  function select(f) {
+    setQuery(f.short_name || f.name);
+    onChange(f.short_name || f.name);
+    setOpen(false);
+  }
+
+  function handleChange(e) {
+    setQuery(e.target.value);
+    onChange(e.target.value);
+    setOpen(true);
+  }
+
+  return (
+    <div style={{ position: 'relative', ...style }}>
+      <input
+        className="form-input"
+        value={query}
+        onChange={handleChange}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Type to search factory (e.g. Beyond, Feifan, Yuanbi)..."
+      />
+      {open && filtered.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
+          background: 'var(--surface)', border: '1px solid var(--accent)', borderRadius: 8,
+          maxHeight: 200, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          marginTop: 2
+        }}>
+          {filtered.slice(0, 15).map(f => (
+            <div key={f.id} onMouseDown={() => select(f)} style={{
+              padding: '8px 12px', cursor: 'pointer', fontSize: 13,
+              borderBottom: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-muted)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)', minWidth: 80 }}>{f.short_name || f.name}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 'auto' }}>{f.code}</span>
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-muted)' }}>
+              No factory found — type to use custom name
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
@@ -1379,6 +1645,7 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
   const [factories, setFactories] = useState([{
     id: 1, name: '', piFile: null, plFile: null, dplFile: null
   }]);
+  const [factoryList, setFactoryList] = useState([]); // master factory list for search
   const [items, setItems] = useState([]);
   const [dplItems, setDplItems] = useState([]);
   const [parsing, setParsing] = useState(false);
@@ -1388,6 +1655,11 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
   const [missingCount, setMissingCount] = useState(0);
 
   const custCode = getCustomerCode(form.customer_id, customers);
+
+  // Load factory master list for search
+  useEffect(() => {
+    db(entity).from('factories').select('id,name,short_name,code').order('name').then(r => setFactoryList(r.data || []));
+  }, [entity]);
   const hasCCPrices = items.some(i => i.cc_price && +i.cc_price > 0 && +i.cc_price !== +i.unit_price);
   const actualTotal = items.reduce((s,i) => s + ((+i.quantity||0) * (+i.unit_price||0)), 0) + (+form.misc_charges||0);
   const ccTotal = items.reduce((s,i) => s + ((+i.quantity||0) * (+i.cc_price||+i.unit_price||0)), 0) + (+form.misc_charges||0);
@@ -1708,7 +1980,12 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
               <div key={factory.id} style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-light)', minWidth: 70 }}>Factory {fi+1}</span>
-                  <input className="form-input" value={factory.name} onChange={e => updateFactory(factory.id, 'name', e.target.value)} placeholder="Factory name (e.g. Beyond, Feifan, Yuanbi)" style={{ flex: 1 }} />
+                  <FactorySearch
+                    value={factory.name}
+                    onChange={name => updateFactory(factory.id, 'name', name)}
+                    factoryList={factoryList}
+                    style={{ flex: 1 }}
+                  />
                   {factories.length > 1 && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => removeFactory(factory.id)}>✕</button>}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
@@ -1934,6 +2211,214 @@ function Factories() {
 }
 
 // ─── ROUTER ──────────────────────────────────────────────────
+// ─── CREDIT / DEBIT NOTES PAGE ───────────────────────────────
+function Notes() {
+  const { entity } = useApp();
+  const [tab, setTab] = useState('cn_customer');
+  const [notes, setNotes] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [factories, setFactories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+
+  useEffect(() => { loadMaster(); }, [entity]);
+  useEffect(() => { loadNotes(); }, [entity, tab]);
+
+  async function loadMaster() {
+    const [r1, r2] = await Promise.all([
+      db(entity).from('customers').select('id,name,code').order('name'),
+      db(entity).from('factories').select('id,name,short_name').order('name'),
+    ]);
+    setCustomers(r1.data || []);
+    setFactories(r2.data || []);
+  }
+
+  async function loadNotes() {
+    setLoading(true);
+    const d = db(entity);
+    let data = [];
+    if (tab === 'cn_customer') {
+      const r = await d.from('credit_notes').select('*, customers(name)').eq('entity', entity).order('cn_date', { ascending: false });
+      data = r.data || [];
+    } else if (tab === 'dn_customer') {
+      const r = await d.from('debit_notes').select('*, customers(name)').eq('entity', entity).order('dn_date', { ascending: false });
+      data = r.data || [];
+    } else if (tab === 'dn_factory') {
+      const r = await d.from('factory_debit_notes').select('*, factories(name,short_name)').eq('entity', entity).order('dn_date', { ascending: false });
+      data = r.data || [];
+    } else {
+      const r = await d.from('factory_credit_notes').select('*, factories(name,short_name)').eq('entity', entity).order('cn_date', { ascending: false });
+      data = r.data || [];
+    }
+    setNotes(data);
+    setLoading(false);
+  }
+
+  const totalOpen = notes.filter(n => n.status === 'open').reduce((s,n) => s + (n.outstanding_amount || n.amount || 0), 0);
+
+  const CN_TYPE_LABELS = { early_payment_discount: 'Early Pay Discount', cc_actual_difference: 'CC vs Actual', claim: 'Claim' };
+  const STATUS_COLORS = { open: 'by', partially_applied: 'bo', fully_applied: 'bg', settled: 'bg', issued: 'bb', acknowledged: 'bb', cancelled: 'bgr', voided: 'bgr', received: 'bb', under_review: 'by', accepted: 'bg', rejected: 'br' };
+
+  return (
+    <div>
+      <div className="stat-grid">
+        <div className="stat-card"><div className="stat-label">Open Balance</div><div className="stat-val" style={{ fontSize: 18, color: 'var(--gold)' }}>{fmtUSD(totalOpen)}</div><div className="stat-sub">Pending application</div></div>
+        <div className="stat-card"><div className="stat-label">Total Notes</div><div className="stat-val" style={{ fontSize: 18 }}>{notes.length}</div></div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
+        <div className="tabs" style={{ marginBottom: 0, flex: 1 }}>
+          <button className={`tab ${tab === 'cn_customer' ? 'active' : ''}`} onClick={() => setTab('cn_customer')}>📝 CN to Customers</button>
+          <button className={`tab ${tab === 'dn_customer' ? 'active' : ''}`} onClick={() => setTab('dn_customer')}>📨 DN from Customers</button>
+          <button className={`tab ${tab === 'dn_factory' ? 'active' : ''}`} onClick={() => setTab('dn_factory')}>📤 DN to Factories</button>
+          <button className={`tab ${tab === 'cn_factory' ? 'active' : ''}`} onClick={() => setTab('cn_factory')}>📥 CN from Factories</button>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={() => setShowNew(true)}>+ New Note</button>
+      </div>
+
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Reference No.</th>
+              <th>{tab.includes('customer') ? 'Customer' : 'Factory'}</th>
+              <th>Date</th>
+              {tab === 'cn_customer' && <th>Type</th>}
+              <th>Amount</th>
+              <th>Applied</th>
+              <th>Outstanding</th>
+              <th>Status</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? <tr><td colSpan={9}><div className="empty">Loading...</div></td></tr>
+              : notes.length === 0 ? <tr><td colSpan={9}><div className="empty">No notes found</div></td></tr>
+              : notes.map(note => (
+                <tr key={note.id}>
+                  <td className="td-p td-mono">{note.cn_number || note.dn_number || '—'}</td>
+                  <td>{note.customers?.name || note.factories?.short_name || note.factories?.name || '—'}</td>
+                  <td>{fmtDate(note.cn_date || note.dn_date)}</td>
+                  {tab === 'cn_customer' && <td><span className="badge bb" style={{ fontSize: 10 }}>{CN_TYPE_LABELS[note.cn_type] || note.cn_type}</span></td>}
+                  <td className="td-amt">{fmtUSD(note.amount)}</td>
+                  <td className="td-amt" style={{ color: 'var(--green)' }}>{fmtUSD(note.applied_amount || 0)}</td>
+                  <td className="td-amt" style={{ fontWeight: 600, color: (note.outstanding_amount || note.amount) > 0 ? 'var(--gold)' : 'var(--green)' }}>
+                    {fmtUSD(note.outstanding_amount ?? note.amount)}
+                  </td>
+                  <td><span className={`badge ${STATUS_COLORS[note.status] || 'bgr'}`}>{note.status?.replace(/_/g,' ')}</span></td>
+                  <td style={{ fontSize: 12, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note.description || '—'}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+
+      {showNew && <NewNoteModal tab={tab} customers={customers} factories={factories} entity={entity} onClose={() => setShowNew(false)} onSaved={loadNotes} />}
+    </div>
+  );
+}
+
+function NewNoteModal({ tab, customers, factories, entity, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    customer_id: '', factory_id: '',
+    date: today(), amount: '', description: '',
+    cn_type: 'claim', claim_reason: '', status: 'open',
+    dn_number: '', cn_number: '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!form.amount || !form.description) { alert('Amount and description required'); return; }
+    setSaving(true);
+    const d = db(entity);
+    const ref = (tab === 'cn_customer' ? 'KAANCN' : tab === 'dn_customer' ? 'KAANDN-C' : tab === 'dn_factory' ? 'KAANDN-F' : 'KAANCN-F') + Date.now();
+    const amt = parseFloat(form.amount);
+
+    if (tab === 'cn_customer') {
+      await d.from('credit_notes').insert({ cn_number: form.cn_number || ref, customer_id: form.customer_id, entity, cn_date: form.date, cn_type: form.cn_type, amount: amt, outstanding_amount: amt, applied_amount: 0, description: form.description, status: 'open' });
+    } else if (tab === 'dn_customer') {
+      await d.from('debit_notes').insert({ dn_number: form.dn_number || ref, customer_id: form.customer_id, entity, dn_date: form.date, amount: amt, description: form.description, claim_reason: form.claim_reason, status: 'received' });
+    } else if (tab === 'dn_factory') {
+      await d.from('factory_debit_notes').insert({ dn_number: ref, factory_id: form.factory_id, entity, dn_date: form.date, amount: amt, description: form.description, claim_reason: form.claim_reason, status: 'issued' });
+    } else {
+      await d.from('factory_credit_notes').insert({ cn_number: form.cn_number || ref, factory_id: form.factory_id, entity, cn_date: form.date, amount: amt, outstanding_amount: amt, applied_amount: 0, description: form.description, status: 'open' });
+    }
+
+    onSaved(); onClose(); setSaving(false);
+  }
+
+  const isCustomer = tab.includes('customer');
+  const isCN = tab.startsWith('cn');
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal modal-sm">
+        <div className="modal-hdr">
+          <div className="modal-title">
+            {tab === 'cn_customer' ? 'New Credit Note to Customer' : tab === 'dn_customer' ? 'New Debit Note from Customer' : tab === 'dn_factory' ? 'New Debit Note to Factory' : 'New Credit Note from Factory'}
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">{isCustomer ? 'Customer' : 'Factory'} *</label>
+          {isCustomer
+            ? <select className="form-input" value={form.customer_id} onChange={e => setForm({...form, customer_id: e.target.value})}><option value="">Select...</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+            : <select className="form-input" value={form.factory_id} onChange={e => setForm({...form, factory_id: e.target.value})}><option value="">Select...</option>{factories.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select>
+          }
+        </div>
+
+        {tab === 'cn_customer' && (
+          <div className="form-group">
+            <label className="form-label">Credit Note Type</label>
+            <select className="form-input" value={form.cn_type} onChange={e => setForm({...form, cn_type: e.target.value})}>
+              <option value="early_payment_discount">Early Payment Discount (1%)</option>
+              <option value="cc_actual_difference">CC vs Actual Invoice Difference</option>
+              <option value="claim">Claim</option>
+            </select>
+          </div>
+        )}
+
+        <div className="grid2">
+          <div className="form-group">
+            <label className="form-label">Date *</label>
+            <input type="date" className="form-input" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Amount (USD) *</label>
+            <input type="number" className="form-input" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} step="0.01" />
+          </div>
+        </div>
+
+        {(tab === 'dn_customer' || tab === 'dn_factory') && (
+          <div className="form-group">
+            <label className="form-label">{tab === 'dn_customer' ? 'Customer DN Number' : 'Reference'}</label>
+            <input className="form-input" value={form.dn_number} onChange={e => setForm({...form, dn_number: e.target.value})} placeholder="Their DN reference number" />
+          </div>
+        )}
+
+        <div className="form-group">
+          <label className="form-label">Description *</label>
+          <textarea className="form-input" value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={3} placeholder="Describe the reason..." />
+        </div>
+
+        {(tab === 'dn_customer' || tab === 'dn_factory') && (
+          <div className="form-group">
+            <label className="form-label">Claim Reason</label>
+            <input className="form-input" value={form.claim_reason} onChange={e => setForm({...form, claim_reason: e.target.value})} placeholder="e.g. quality issue, short shipment, wrong color" />
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save →'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const PAGE_TITLES = { dashboard: 'Dashboard', alerts: 'Delivery Alerts', 'customer-orders': 'Customer Orders', 'factory-orders': 'Factory POs', proforma: 'Proforma Invoices', invoices: 'Commercial Invoices', shipments: 'Shipments', osr: 'Order Status Reports', payments: 'Payments', deposits: 'Deposits', notes: 'Credit / Debit Notes', commission: 'Arte Linea Commission', pl: 'P&L Statement', ledger: 'Debtors & Creditors', archive: 'Document Archive', customers: 'Customers', factories: 'Factories', products: 'Products & Prices', settings: 'Settings' };
 
 function Router({ page, setPage }) {
@@ -1946,6 +2431,7 @@ function Router({ page, setPage }) {
       case 'invoices': return <Invoices />;
       case 'osr': return <OSR />;
       case 'payments': return <Payments />;
+      case 'notes': return <Notes />;
       case 'pl': return <PLReport />;
       case 'ledger': return <Ledger />;
       case 'customers': return <Customers />;
