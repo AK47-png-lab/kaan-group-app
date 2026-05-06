@@ -1162,71 +1162,451 @@ function Invoices() {
 }
 
 function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
-  const [form, setForm] = useState({ invoice_number: '', invoice_type: filterType, customer_id: '', invoice_date: today(), sailing_date: '', payment_terms: '60 days from date of shipment', shipping_terms: 'FOB SHANGHAI', port_of_destination: '', via: 'OCEAN FREIGHT', goods_description: 'FABRIC', container_number: '', bl_number: '', misc_charges: 0, status: 'issued' });
-  const [items, setItems] = useState([{ description: '', color: '', quantity: '', unit_price: '', net_weight: '', gross_weight: '' }]);
+  const [step, setStep] = useState(1); // 1=details, 2=upload factory docs, 3=review items, 4=pdfs ready
+  const [form, setForm] = useState({ invoice_number: '', customer_id: '', invoice_date: today(), sailing_date: '', payment_terms: '60 days from date of shipment', shipping_terms: 'FOB SHANGHAI', port_of_destination: '', via: 'OCEAN FREIGHT', goods_description: 'FABRIC', container_number: '', bl_number: '', misc_charges: 0, status: 'issued' });
+  const [items, setItems] = useState([]);
+  const [dplItems, setDplItems] = useState([]);
+  const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savedInvoice, setSavedInvoice] = useState(null);
+  const [generatedPDFs, setGeneratedPDFs] = useState([]);
+  const [uploadedFiles, setUploadedFiles] = useState({ pi: null, pl: null, dpl: null });
 
   function upItem(i, f, v) { setItems(p => p.map((item, idx) => idx === i ? { ...item, [f]: v } : item)); }
-  const subtotal = items.reduce((s, i) => s + ((+i.quantity || 0) * (+i.unit_price || 0)), 0);
-  const total = subtotal + (+form.misc_charges || 0);
+  function upDpl(i, f, v) { setDplItems(p => p.map((item, idx) => idx === i ? { ...item, [f]: v } : item)); }
 
-  async function save() {
-    if (!form.invoice_number || !form.customer_id) return;
+  const actualTotal = items.reduce((s, i) => s + ((+i.quantity||0) * (+i.unit_price||0)), 0) + (+form.misc_charges||0);
+  const ccTotal = items.reduce((s, i) => s + ((+i.quantity||0) * (+i.cc_price||+i.unit_price||0)), 0) + (+form.misc_charges||0);
+  const hasCCPrices = items.some(i => i.cc_price && +i.cc_price !== +i.unit_price);
+
+  // Parse uploaded factory document using Claude API
+  async function parseFactoryDoc(file, docType) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const base64 = e.target.result.split(',')[1];
+          const mediaType = file.type || 'application/octet-stream';
+          const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 2000,
+              messages: [{
+                role: 'user',
+                content: [
+                  { type: 'document', source: { type: 'base64', media_type: mediaType, data: base64 } },
+                  { type: 'text', text: `This is a factory ${docType} document for a textile/fabric shipment. Extract all line items and return ONLY a JSON array. No markdown, no explanation.\n\nFor PI (Proforma Invoice), each item: {"description":"...","color":"...","quantity":0,"factory_price":0,"net_weight":0,"gross_weight":0}\n\nFor PL (Packing List), each item: {"description":"...","color":"...","quantity":0,"packages":0,"net_weight":0,"gross_weight":0,"cbm":0,"order_number":"..."}\n\nFor DPL (Detailed Packing List), each item: {"description":"...","roll_number":0,"quantity_mts":0,"lot":"","order_number":""}\n\nReturn ONLY the JSON array.` }
+                ]
+              }]
+            })
+          });
+          const data = await resp.json();
+          const text = data.content?.[0]?.text || '[]';
+          const clean = text.replace(/```json|```/g, '').trim();
+          resolve(JSON.parse(clean));
+        } catch(err) {
+          console.error('Parse error:', err);
+          resolve([]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function processFactoryDocs() {
+    if (!uploadedFiles.pi) { alert('Please upload the factory PI file'); return; }
+    setParsing(true);
+    try {
+      // Parse PI
+      const piItems = await parseFactoryDoc(uploadedFiles.pi, 'PI');
+      // Parse PL if uploaded
+      const plItems = uploadedFiles.pl ? await parseFactoryDoc(uploadedFiles.pl, 'PL') : [];
+      // Parse DPL if uploaded
+      const dplParsed = uploadedFiles.dpl ? await parseFactoryDoc(uploadedFiles.dpl, 'DPL') : [];
+
+      // Merge PI + PL data
+      const merged = piItems.map((item, i) => {
+        const plItem = plItems[i] || {};
+        return {
+          description: item.description || '',
+          color: item.color || plItem.color || '',
+          quantity: item.quantity || plItem.quantity || 0,
+          factory_price: item.factory_price || 0,
+          unit_price: '', // customer price - staff fills in
+          cc_price: '',   // CC price - staff fills in if needed
+          net_weight: item.net_weight || plItem.net_weight || 0,
+          gross_weight: item.gross_weight || plItem.gross_weight || 0,
+          cbm: plItem.cbm || 0,
+          packages: plItem.packages || 0,
+          order_number: plItem.order_number || '',
+        };
+      });
+
+      setItems(merged.length > 0 ? merged : [{ description: '', color: '', quantity: '', factory_price: '', unit_price: '', cc_price: '', net_weight: '', gross_weight: '', cbm: '', packages: '' }]);
+      setDplItems(dplParsed);
+      setStep(3);
+    } catch(err) {
+      alert('Error reading documents. Please check file format or enter items manually.');
+    }
+    setParsing(false);
+  }
+
+  function addManualItem() {
+    setItems(p => [...p, { description: '', color: '', quantity: '', factory_price: '', unit_price: '', cc_price: '', net_weight: '', gross_weight: '', cbm: '', packages: '' }]);
+  }
+
+  async function saveAndGenerate() {
+    if (!form.invoice_number || !form.customer_id) { alert('Invoice number and customer are required'); return; }
+    const missingPrices = items.filter(i => i.description && !i.unit_price);
+    if (missingPrices.length > 0) { alert(`Please fill in customer prices for: ${missingPrices.map(i => i.description).join(', ')}`); return; }
     setSaving(true);
+
     const d = db(entity);
     let due_date = null;
     if (form.sailing_date) { const dt = new Date(form.sailing_date); dt.setDate(dt.getDate() + 60); due_date = dt.toISOString().split('T')[0]; }
-    const { data: inv, error } = await d.from('commercial_invoices').insert({ ...form, entity, subtotal, total_amount: total, due_date, misc_charges: +form.misc_charges || 0 }).select().single();
-    if (error) { setSaving(false); return; }
-    const lineItems = items.filter(i => i.description).map((item, idx) => ({ invoice_id: inv.id, line_no: idx + 1, ...item, quantity: +item.quantity || 0, unit_price: +item.unit_price || 0, net_weight: +item.net_weight || null, gross_weight: +item.gross_weight || null }));
+
+    // Get customer details for PDF
+    const { data: custData } = await d.from('customers').select('*').eq('id', form.customer_id).single();
+
+    // 1. Save actual invoice
+    const { data: inv } = await d.from('commercial_invoices').insert({
+      ...form, entity, invoice_type: 'actual',
+      subtotal: actualTotal - (+form.misc_charges||0),
+      total_amount: actualTotal, due_date,
+      misc_charges: +form.misc_charges||0
+    }).select().single();
+
+    if (!inv) { setSaving(false); return; }
+
+    const lineItems = items.filter(i => i.description).map((item, idx) => ({
+      invoice_id: inv.id, line_no: idx + 1,
+      description: item.description, color: item.color,
+      quantity: +item.quantity||0, unit_price: +item.unit_price||0,
+      net_weight: +item.net_weight||null, gross_weight: +item.gross_weight||null,
+    }));
     if (lineItems.length) await d.from('invoice_items').insert(lineItems);
-    onSaved(); onClose(); setSaving(false);
+
+    // 2. Save CC invoice if CC prices exist
+    let ccInv = null;
+    if (hasCCPrices) {
+      const { data: cc } = await d.from('commercial_invoices').insert({
+        ...form, entity, invoice_type: 'customs_clearance',
+        invoice_number: form.invoice_number + '-CC',
+        subtotal: ccTotal - (+form.misc_charges||0),
+        total_amount: ccTotal, due_date,
+        paired_invoice_id: inv.id,
+        cc_vs_actual_diff: ccTotal - actualTotal,
+        misc_charges: +form.misc_charges||0
+      }).select().single();
+      if (cc) {
+        ccInv = cc;
+        const ccLines = items.filter(i => i.description).map((item, idx) => ({
+          invoice_id: cc.id, line_no: idx + 1,
+          description: item.description, color: item.color,
+          quantity: +item.quantity||0, unit_price: +item.cc_price||+item.unit_price||0,
+          net_weight: +item.net_weight||null, gross_weight: +item.gross_weight||null,
+        }));
+        if (ccLines.length) await d.from('invoice_items').insert(ccLines);
+        // Update actual invoice with paired reference
+        await d.from('commercial_invoices').update({ paired_invoice_id: cc.id, cc_vs_actual_diff: ccTotal - actualTotal }).eq('id', inv.id);
+      }
+    }
+
+    // 3. Generate PDFs
+    const pdfs = [];
+    const co = CONFIGS[entity];
+
+    function makePDF(title, invoiceNum, lineItems, total, isCC) {
+      const lines = [`${co.name}`, co.address, `TAX ID: ${co.taxId}`, '', title, '',
+        `TO: ${custData?.name || ''}`, custData?.address_line1 || '', custData?.city || '',
+        `RFC: ${custData?.tax_id || ''}`, '',
+        `INVOICE: ${invoiceNum}`, `DATE: ${form.invoice_date}`,
+        isCC ? 'FOR CUSTOMS CLEARANCE PURPOSE ONLY' : '',
+        '', `PAYMENT: ${form.payment_terms}`, `VIA: ${form.via}`,
+        `TERMS: ${form.shipping_terms}`, `CONTAINER: ${form.container_number}`, `B/L: ${form.bl_number}`, '',
+        'Description | Qty (Mts) | Unit Price | Amount | Net Wt | Gross Wt',
+        '---',
+        ...lineItems.map(i => `${i.description} | ${fmt(i.quantity,1)} | ${fmt(i.unit_price,4)} | ${fmt(i.quantity*i.unit_price,2)} | ${fmt(i.net_weight||0,1)} | ${fmt(i.gross_weight||0,1)}`),
+        '---',
+        `TOTAL: ${fmtUSD(total)}`, '',
+        'BANKING DETAILS:', `Company: ${co.name}`, `Account: ${co.bankAccount}`,
+        `Bank: ${co.bankName}`, `Swift: ${co.swift}`
+      ];
+      return lines.join('\n');
+    }
+
+    // Actual CI text
+    const actualText = makePDF('COMMERCIAL INVOICE', form.invoice_number, lineItems.map(li => ({ ...li, unit_price: +items.find((_,idx) => idx === li.line_no-1)?.unit_price||0 })), actualTotal, false);
+    pdfs.push({ label: `📄 Actual Invoice — ${form.invoice_number}`, text: actualText, filename: `${form.invoice_number}_actual.txt` });
+
+    // CC CI text
+    if (hasCCPrices) {
+      const ccLineItems = items.filter(i => i.description).map((item, idx) => ({ line_no: idx+1, description: item.description, color: item.color, quantity: +item.quantity||0, unit_price: +item.cc_price||+item.unit_price||0, net_weight: +item.net_weight||0, gross_weight: +item.gross_weight||0 }));
+      const ccText = makePDF('COMMERCIAL INVOICE (FOR CUSTOMS CLEARANCE ONLY)', form.invoice_number+'-CC', ccLineItems, ccTotal, true);
+      pdfs.push({ label: `📄 CC Invoice — ${form.invoice_number}-CC`, text: ccText, filename: `${form.invoice_number}_CC.txt` });
+
+      // Credit note
+      const diff = ccTotal - actualTotal;
+      const cnText = [`${co.name}`, '', 'CREDIT NOTE', '',
+        `TO: ${custData?.name || ''}`, `DATE: ${form.invoice_date}`, `REF INVOICE: ${form.invoice_number}`, '',
+        `Description: Difference between CC Invoice (${form.invoice_number}-CC) and Actual Invoice (${form.invoice_number})`,
+        `Amount: ${fmtUSD(diff)}`, '',
+        'This credit note amount will be adjusted against your next payment.', '',
+        `For and on behalf of ${co.name}`
+      ].join('\n');
+      pdfs.push({ label: `📝 Credit Note — CC Difference ${fmtUSD(diff)}`, text: cnText, filename: `${form.invoice_number}_CN.txt` });
+    }
+
+    // Packing List
+    const plText = [`${co.name}`, '', 'PACKING LIST', '',
+      `INVOICE: ${form.invoice_number}`, `DATE: ${form.invoice_date}`, `CONTAINER: ${form.container_number}`, '',
+      'Description | Color | Qty (Mts) | Pkgs | Net Wt | Gross Wt | CBM | Order No.',
+      '---',
+      ...items.filter(i => i.description).map(i => `${i.description} | ${i.color||''} | ${fmt(+i.quantity||0,1)} | ${i.packages||''} | ${fmt(+i.net_weight||0,1)} | ${fmt(+i.gross_weight||0,1)} | ${fmt(+i.cbm||0,3)} | ${i.order_number||''}`),
+      '---',
+      `TOTAL QTY: ${fmt(items.reduce((s,i)=>s+(+i.quantity||0),0),0)} mts`,
+      `TOTAL PKGS: ${items.reduce((s,i)=>s+(+i.packages||0),0)}`,
+      `TOTAL NET WT: ${fmt(items.reduce((s,i)=>s+(+i.net_weight||0),0),1)} kgs`,
+      `TOTAL GROSS WT: ${fmt(items.reduce((s,i)=>s+(+i.gross_weight||0),0),1)} kgs`,
+    ].join('\n');
+    pdfs.push({ label: `📦 Packing List — ${form.invoice_number}`, text: plText, filename: `${form.invoice_number}_PL.txt` });
+
+    // DPL
+    if (dplItems.length > 0) {
+      const dplText = [`${co.name}`, '', 'DETAILED PACKING LIST', '',
+        `INVOICE: ${form.invoice_number}`, `DATE: ${form.invoice_date}`, '',
+        'Order No. | Description | Roll No. | Qty (Mts) | Lot',
+        '---',
+        ...dplItems.map(i => `${i.order_number||''} | ${i.description||''} | ${i.roll_number||''} | ${fmt(+i.quantity_mts||0,1)} | ${i.lot||''}`),
+        '---',
+        `TOTAL: ${fmt(dplItems.reduce((s,i)=>s+(+i.quantity_mts||0),0),1)} mts`,
+      ].join('\n');
+      pdfs.push({ label: `📋 Detailed Packing List — ${form.invoice_number}`, text: dplText, filename: `${form.invoice_number}_DPL.txt` });
+    }
+
+    // Save to document archive
+    for (const pdf of pdfs) {
+      await d.from('document_archive').insert({
+        doc_number: form.invoice_number,
+        doc_type: pdf.filename.includes('CC') ? 'commercial_invoice_cc' : pdf.filename.includes('PL') ? 'packing_list' : pdf.filename.includes('DPL') ? 'detailed_packing_list' : pdf.filename.includes('CN') ? 'credit_note_cc_diff' : 'commercial_invoice_actual',
+        entity, doc_date: form.invoice_date,
+        financial_year: new Date(form.invoice_date).getFullYear(),
+        counterparty_type: 'customer', counterparty_id: form.customer_id,
+        counterparty_name: custData?.name, amount: actualTotal, currency: 'USD',
+        source_table: 'commercial_invoices', source_id: inv.id,
+        file_name: pdf.filename
+      }).select();
+    }
+
+    setGeneratedPDFs(pdfs);
+    setSavedInvoice(inv);
+    setStep(4);
+    onSaved();
+    setSaving(false);
   }
+
+  function downloadDoc(pdf) {
+    const blob = new Blob([pdf.text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = pdf.filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadAll() { generatedPDFs.forEach(pdf => downloadDoc(pdf)); }
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal modal-lg">
-        <div className="modal-hdr"><div className="modal-title">New Commercial Invoice</div><button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button></div>
-        <div className="grid2">
-          <div className="form-group"><label className="form-label">Invoice Number *</label><input className="form-input" value={form.invoice_number} onChange={e => setForm({ ...form, invoice_number: e.target.value })} placeholder="KAAN20260429C1" /></div>
-          <div className="form-group"><label className="form-label">Invoice Type</label><select className="form-input" value={form.invoice_type} onChange={e => setForm({ ...form, invoice_type: e.target.value })}><option value="actual">Actual Amount</option><option value="customs_clearance">Customs Clearance</option></select></div>
-          <div className="form-group"><label className="form-label">Customer *</label><select className="form-input" value={form.customer_id} onChange={e => setForm({ ...form, customer_id: e.target.value })}><option value="">Select...</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-          <div className="form-group"><label className="form-label">Invoice Date</label><input type="date" className="form-input" value={form.invoice_date} onChange={e => setForm({ ...form, invoice_date: e.target.value })} /></div>
-          <div className="form-group"><label className="form-label">Sailing Date (ETD)</label><input type="date" className="form-input" value={form.sailing_date} onChange={e => setForm({ ...form, sailing_date: e.target.value })} /></div>
-          <div className="form-group"><label className="form-label">Container No.</label><input className="form-input" value={form.container_number} onChange={e => setForm({ ...form, container_number: e.target.value })} /></div>
-          <div className="form-group"><label className="form-label">B/L Number</label><input className="form-input" value={form.bl_number} onChange={e => setForm({ ...form, bl_number: e.target.value })} /></div>
-          <div className="form-group"><label className="form-label">Port of Destination</label><input className="form-input" value={form.port_of_destination} onChange={e => setForm({ ...form, port_of_destination: e.target.value })} /></div>
-          <div className="form-group"><label className="form-label">Via</label><select className="form-input" value={form.via} onChange={e => setForm({ ...form, via: e.target.value })}><option>OCEAN FREIGHT</option><option>AIR</option><option>FEDEX</option><option>DHL</option></select></div>
-          <div className="form-group"><label className="form-label">Misc. Charges (USD)</label><input type="number" className="form-input" value={form.misc_charges} onChange={e => setForm({ ...form, misc_charges: e.target.value })} step="0.01" /></div>
+        <div className="modal-hdr">
+          <div>
+            <div className="modal-title">New Commercial Invoice</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+              Step {step} of 4 — {step===1?'Invoice Details':step===2?'Upload Factory Documents':step===3?'Review & Set Prices':'Documents Ready'}
+            </div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>
-        <div className="sh" style={{ marginTop: 6 }}>
-          <div className="sh-title">Invoice Items</div>
-          <button className="btn btn-secondary btn-sm" onClick={() => setItems(p => [...p, { description: '', color: '', quantity: '', unit_price: '', net_weight: '', gross_weight: '' }])}>+ Add</button>
+
+        {/* Progress bar */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
+          {[1,2,3,4].map(s => (
+            <div key={s} style={{ flex: 1, height: 3, borderRadius: 2, background: s <= step ? 'var(--accent)' : 'var(--navy-border)' }} />
+          ))}
         </div>
-        <div className="table-wrap" style={{ marginBottom: 14 }}>
-          <table>
-            <thead><tr><th>Description</th><th>Color</th><th>Qty (mts)</th><th>Unit Price</th><th>Amount</th><th>Net Wt</th><th>Gross Wt</th><th></th></tr></thead>
-            <tbody>
-              {items.map((item, i) => (
-                <tr key={i}>
-                  <td><input className="form-input" style={{ fontSize: 12, padding: '4px 7px' }} value={item.description} onChange={e => upItem(i, 'description', e.target.value)} /></td>
-                  <td><input className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 80 }} value={item.color} onChange={e => upItem(i, 'color', e.target.value)} /></td>
-                  <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 80 }} value={item.quantity} onChange={e => upItem(i, 'quantity', e.target.value)} /></td>
-                  <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 80 }} value={item.unit_price} onChange={e => upItem(i, 'unit_price', e.target.value)} step="0.0001" /></td>
-                  <td className="td-amt" style={{ fontSize: 12 }}>{fmt((+item.quantity || 0) * (+item.unit_price || 0))}</td>
-                  <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 70 }} value={item.net_weight} onChange={e => upItem(i, 'net_weight', e.target.value)} /></td>
-                  <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 70 }} value={item.gross_weight} onChange={e => upItem(i, 'gross_weight', e.target.value)} /></td>
-                  <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setItems(p => p.filter((_, idx) => idx !== i))}>✕</button></td>
-                </tr>
+
+        {/* STEP 1 — Invoice Details */}
+        {step === 1 && (
+          <>
+            <div className="grid2">
+              <div className="form-group"><label className="form-label">Invoice Number *</label><input className="form-input" value={form.invoice_number} onChange={e => setForm({...form, invoice_number: e.target.value})} placeholder="KAAN20260429C1" /></div>
+              <div className="form-group"><label className="form-label">Customer *</label>
+                <select className="form-input" value={form.customer_id} onChange={e => setForm({...form, customer_id: e.target.value})}>
+                  <option value="">Select customer...</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="form-group"><label className="form-label">Invoice Date</label><input type="date" className="form-input" value={form.invoice_date} onChange={e => setForm({...form, invoice_date: e.target.value})} /></div>
+              <div className="form-group"><label className="form-label">Sailing Date (ETD)</label><input type="date" className="form-input" value={form.sailing_date} onChange={e => setForm({...form, sailing_date: e.target.value})} /></div>
+              <div className="form-group"><label className="form-label">Container No.</label><input className="form-input" value={form.container_number} onChange={e => setForm({...form, container_number: e.target.value})} /></div>
+              <div className="form-group"><label className="form-label">B/L Number</label><input className="form-input" value={form.bl_number} onChange={e => setForm({...form, bl_number: e.target.value})} /></div>
+              <div className="form-group"><label className="form-label">Port of Destination</label><input className="form-input" value={form.port_of_destination} onChange={e => setForm({...form, port_of_destination: e.target.value})} placeholder="e.g. MANZANILLO, MEXICO" /></div>
+              <div className="form-group"><label className="form-label">Via</label>
+                <select className="form-input" value={form.via} onChange={e => setForm({...form, via: e.target.value})}>
+                  <option>OCEAN FREIGHT</option><option>AIR</option><option>FEDEX</option><option>DHL</option>
+                </select>
+              </div>
+              <div className="form-group"><label className="form-label">Payment Terms</label><input className="form-input" value={form.payment_terms} onChange={e => setForm({...form, payment_terms: e.target.value})} /></div>
+              <div className="form-group"><label className="form-label">Misc. Charges (USD)</label><input type="number" className="form-input" value={form.misc_charges} onChange={e => setForm({...form, misc_charges: e.target.value})} step="0.01" /></div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+              <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => { if (!form.invoice_number || !form.customer_id) { alert('Invoice number and customer required'); return; } setStep(2); }}>Next: Upload Factory Docs →</button>
+            </div>
+          </>
+        )}
+
+        {/* STEP 2 — Upload Factory Documents */}
+        {step === 2 && (
+          <>
+            <div className="alert alert-info">📎 Upload the factory PI, PL and DPL documents. Supported formats: PDF, Excel (.xlsx), Word (.docx), Images. The system will read them automatically.</div>
+            {[
+              { key: 'pi', label: 'Factory PI (Proforma Invoice)', required: true },
+              { key: 'pl', label: 'Factory Packing List (PL)', required: false },
+              { key: 'dpl', label: 'Factory Detailed Packing List (DPL)', required: false },
+            ].map(({ key, label, required }) => (
+              <div key={key} className="form-group">
+                <label className="form-label">{label} {required ? '*' : '(optional)'}</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <input type="file" accept=".pdf,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg" onChange={e => setUploadedFiles(p => ({...p, [key]: e.target.files[0]}))} style={{ flex: 1, background: 'var(--navy)', border: '1px solid var(--navy-border)', borderRadius: 8, padding: '7px 11px', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit' }} />
+                  {uploadedFiles[key] && <span className="badge bg">✓ {uploadedFiles[key].name}</span>}
+                </div>
+              </div>
+            ))}
+            <div style={{ margin: '16px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>— or —</div>
+            <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { setItems([{ description: '', color: '', quantity: '', factory_price: '', unit_price: '', cc_price: '', net_weight: '', gross_weight: '', cbm: '', packages: '' }]); setStep(3); }}>
+              Enter items manually instead
+            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 20 }}>
+              <button className="btn btn-secondary" onClick={() => setStep(1)}>← Back</button>
+              <button className="btn btn-primary" onClick={processFactoryDocs} disabled={parsing || !uploadedFiles.pi}>
+                {parsing ? '⏳ Reading documents...' : '📖 Read & Extract Items →'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* STEP 3 — Review Items & Set Prices */}
+        {step === 3 && (
+          <>
+            <div className="alert alert-info">
+              ✏️ Review extracted items. Fill in <strong>Customer Price</strong> for each item. Fill in <strong>CC Price</strong> only if customs clearance requires a higher declared value.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div className="sh-title">Invoice Items ({items.length})</div>
+              <button className="btn btn-secondary btn-sm" onClick={addManualItem}>+ Add Row</button>
+            </div>
+            <div className="table-wrap" style={{ marginBottom: 16 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th>Color</th>
+                    <th>Qty (mts)</th>
+                    <th style={{ color: 'var(--text-muted)' }}>Factory Price</th>
+                    <th style={{ color: 'var(--accent-light)' }}>Customer Price *</th>
+                    <th style={{ color: 'var(--gold)' }}>CC Price (if different)</th>
+                    <th>Net Wt</th>
+                    <th>Gross Wt</th>
+                    <th>Pkgs</th>
+                    <th>CBM</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, i) => (
+                    <tr key={i} style={{ background: item.unit_price ? undefined : 'rgba(239,68,68,0.04)' }}>
+                      <td><input className="form-input" style={{ fontSize: 12, padding: '4px 7px', minWidth: 180 }} value={item.description} onChange={e => upItem(i,'description',e.target.value)} /></td>
+                      <td><input className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 80 }} value={item.color} onChange={e => upItem(i,'color',e.target.value)} /></td>
+                      <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 80 }} value={item.quantity} onChange={e => upItem(i,'quantity',e.target.value)} /></td>
+                      <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 80, color: 'var(--text-muted)' }} value={item.factory_price} onChange={e => upItem(i,'factory_price',e.target.value)} /></td>
+                      <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 90, borderColor: !item.unit_price ? 'var(--red)' : undefined }} value={item.unit_price} onChange={e => upItem(i,'unit_price',e.target.value)} placeholder="Required" step="0.0001" /></td>
+                      <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 90, borderColor: item.cc_price ? 'var(--gold)' : undefined }} value={item.cc_price} onChange={e => upItem(i,'cc_price',e.target.value)} placeholder="Optional" step="0.0001" /></td>
+                      <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 70 }} value={item.net_weight} onChange={e => upItem(i,'net_weight',e.target.value)} /></td>
+                      <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 70 }} value={item.gross_weight} onChange={e => upItem(i,'gross_weight',e.target.value)} /></td>
+                      <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 60 }} value={item.packages} onChange={e => upItem(i,'packages',e.target.value)} /></td>
+                      <td><input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 7px', width: 70 }} value={item.cbm} onChange={e => upItem(i,'cbm',e.target.value)} step="0.001" /></td>
+                      <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setItems(p => p.filter((_,idx) => idx !== i))}>✕</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: 'right', fontWeight: 600, padding: '10px 13px', color: 'var(--text-primary)' }}>Actual Total:</td>
+                    <td style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--green)', padding: '10px 13px' }}>{fmtUSD(actualTotal)}</td>
+                    <td style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--gold)', padding: '10px 13px' }}>
+                      {hasCCPrices ? `CC: ${fmtUSD(ccTotal)}` : '—'}
+                    </td>
+                    <td colSpan={5} />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {hasCCPrices && (
+              <div className="alert alert-warn">
+                ⚠️ CC prices differ from actual prices. System will generate: Actual CI + CC CI + Credit Note for difference of {fmtUSD(ccTotal - actualTotal)}
+              </div>
+            )}
+
+            {/* DPL preview if extracted */}
+            {dplItems.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div className="sh-title" style={{ marginBottom: 8 }}>Detailed Packing List — {dplItems.length} rolls extracted</div>
+                <div style={{ maxHeight: 150, overflowY: 'auto', background: 'var(--navy)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: 'var(--text-muted)' }}>
+                  {dplItems.slice(0,10).map((item, i) => (
+                    <div key={i} style={{ padding: '3px 0', borderBottom: '1px solid var(--navy-border)' }}>
+                      Roll {item.roll_number} — {item.description} — {fmt(item.quantity_mts||0,1)} mts {item.lot ? `(Lot: ${item.lot})` : ''}
+                    </div>
+                  ))}
+                  {dplItems.length > 10 && <div style={{ marginTop: 6 }}>...and {dplItems.length - 10} more rolls</div>}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <button className="btn btn-secondary" onClick={() => setStep(2)}>← Back</button>
+              <button className="btn btn-primary" onClick={saveAndGenerate} disabled={saving}>
+                {saving ? '⏳ Generating documents...' : '✅ Save & Generate Documents →'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* STEP 4 — Documents Ready */}
+        {step === 4 && (
+          <>
+            <div style={{ textAlign: 'center', padding: '20px 0 16px' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>Documents Generated Successfully!</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Invoice {form.invoice_number} saved to system and archive</div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              {generatedPDFs.map((pdf, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--navy)', border: '1px solid var(--navy-border)', borderRadius: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{pdf.label}</div>
+                  <button className="btn btn-secondary btn-sm" onClick={() => downloadDoc(pdf)}>⬇ Download</button>
+                </div>
               ))}
-              <tr><td colSpan={4} style={{ textAlign: 'right', fontWeight: 600, padding: '9px 13px', color: 'var(--text-primary)' }}>TOTAL:</td><td className="td-amt" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{fmtUSD(total)}</td><td colSpan={3} /></tr>
-            </tbody>
-          </table>
-        </div>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save Invoice →'}</button>
-        </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button className="btn btn-primary" onClick={downloadAll}>⬇ Download All Documents</button>
+              <button className="btn btn-secondary" onClick={onClose}>Close</button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
