@@ -1804,61 +1804,98 @@ async function parseFile(file, hint, factoryName) {
   try {
     const sheets = await readAllSheets(file);
     let pi_items = [], pl_items = [], dpl_items = [];
+    let detectedFactory = factoryName;
 
-    if (Object.keys(sheets).length === 1) {
-      // Single sheet - try all types
+    // Try to detect factory name from file content (first sheet, first few rows)
+    const firstRows = Object.values(sheets)[0] || [];
+    for (let i = 0; i < Math.min(5, firstRows.length); i++) {
+      const rowText = (firstRows[i] || []).map(c => String(c||'')).join(' ').trim();
+      // Look for known factory name patterns in header rows
+      const knownFactories = [
+        ['HAINING WEIKAIEN', 'Bangde'], ['BANGDE', 'Bangde'],
+        ['HAIHONG', 'HaiHong'], ['HAINING HAIHONG', 'HaiHong'],
+        ['FEIFAN', 'Feifan'], ['BEYOND', 'Beyond'],
+        ['XINRUN', 'Xinrun'], ['BUWEI', 'Buwei'],
+        ['LEJI', 'Leji'], ['TONGHUI', 'Tonghui'],
+        ['TONGHAO', 'Tonghao'], ['DECORATION', 'Decoration'],
+        ['DAIKUN', 'Daikun'], ['NEOGOLD', 'Neogold'],
+        ['MIJU', 'Miju'], ['ALNO', 'ALNO'],
+        ['ETEX', 'E-TEX'], ['E-TEX', 'E-TEX'],
+        ['MINGRONG', 'Mingrong'], ['铭龙', 'Mingrong'],
+        ['SENSEILON', 'Senseilon'], ['BRIGHTEX', 'Brightex'],
+        ['JIAXING BRIGHT', 'Brightex'], ['HUANGDAOPO', 'HDP'],
+        ['YINUO', 'Yinuo'], ['RUN&FUN', 'Run&Fun'],
+        ['BINGO', 'Bingo'], ['HUASHUI', 'Huashui'],
+      ];
+      const upperText = rowText.toUpperCase();
+      for (const [pattern, name] of knownFactories) {
+        if (upperText.includes(pattern.toUpperCase())) {
+          detectedFactory = name;
+          break;
+        }
+      }
+      if (detectedFactory !== factoryName) break;
+    }
+
+    const sheetNames = Object.keys(sheets);
+
+    if (sheetNames.length === 1) {
       const rows = Object.values(sheets)[0];
       const fmt = detectFactoryFormat(rows);
       if (hint === 'dpl' || fmt === 'mingrong') {
-        dpl_items = extractDPL(rows, factoryName);
+        dpl_items = extractDPL(rows, detectedFactory);
       } else if (hint === 'pl') {
         pl_items = extractPL(rows);
-        if (!pl_items.length) pi_items = extractPI(rows, factoryName);
+        if (!pl_items.length) pi_items = extractPI(rows, detectedFactory);
       } else {
-        pi_items = extractPI(rows, factoryName);
+        pi_items = extractPI(rows, detectedFactory);
         if (!pi_items.length) pl_items = extractPL(rows);
-        if (!pi_items.length && !pl_items.length) dpl_items = extractDPL(rows, factoryName);
+        if (!pi_items.length && !pl_items.length) dpl_items = extractDPL(rows, detectedFactory);
       }
     } else {
-      // Multiple sheets - classify each by name and content
+      // Multiple sheets — classify each by name then content
       for (const [sheetName, rows] of Object.entries(sheets)) {
-        const sn = sheetName.toUpperCase();
+        const sn = sheetName.toUpperCase().trim();
         const fmt = detectFactoryFormat(rows);
-        const isDPL = sn.includes('DPL') || sn.includes('DETAIL') || sn.includes('明细') || fmt === 'mingrong';
-        const isPL = !isDPL && (sn.includes('PL') || sn.includes('PACK') || sn.includes('PACKING'));
-        const isPI = !isDPL && !isPL && (sn.includes('INV') || sn.includes('CI') || sn.includes('IV'));
+
+        // Classify sheet
+        const isDPL = sn.includes('DPL') || sn.includes('DETAIL') || sn === '明细' || fmt === 'mingrong';
+        const isPL = !isDPL && (sn === 'PL' || sn.includes('PACK') || sn.includes('PK LIST') || sn === 'PL ');
+        // Everything else is a potential PI sheet
+        const isPI = !isDPL && !isPL;
 
         if (isDPL && !dpl_items.length) {
-          const d = extractDPL(rows, factoryName);
+          const d = extractDPL(rows, detectedFactory);
           if (d.length) dpl_items = d;
         } else if (isPL && !pl_items.length) {
           const p = extractPL(rows);
           if (p.length) pl_items = p;
-        } else if (!pi_items.length) {
-          const p = extractPI(rows, factoryName);
+        } else if (isPI && !pi_items.length) {
+          const p = extractPI(rows, detectedFactory);
           if (p.length) pi_items = p;
         }
       }
-      // Fallbacks
+      // If still no PI items, try every sheet
       if (!pi_items.length) {
-        for (const rows of Object.values(sheets)) {
-          const p = extractPI(rows, factoryName);
+        for (const [sheetName, rows] of Object.entries(sheets)) {
+          const p = extractPI(rows, detectedFactory);
           if (p.length) { pi_items = p; break; }
         }
       }
+      // If still no PL items, try every sheet
       if (!pl_items.length) {
-        for (const rows of Object.values(sheets)) {
+        for (const [sheetName, rows] of Object.entries(sheets)) {
           const p = extractPL(rows);
           if (p.length) { pl_items = p; break; }
         }
       }
     }
 
-    console.log(factoryName, '→ PI:', pi_items.length, 'PL:', pl_items.length, 'DPL:', dpl_items.length);
-    return { pi_items, pl_items, dpl_items };
+    console.log(detectedFactory, '→ PI:', pi_items.length, 'PL:', pl_items.length, 'DPL:', dpl_items.length, '| sheets:', Object.keys(sheets));
+    return { pi_items, pl_items, dpl_items, detectedFactory };
   } catch(err) {
     console.error('parseFile error', factoryName, err);
-    return { pi_items: [], pl_items: [], dpl_items: [], error: err.message };
+    return { pi_items: [], pl_items: [], dpl_items: [], detectedFactory: factoryName, error: err.message };
   }
 }
 
@@ -1978,7 +2015,8 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
       let allItems = [], allDpl = [];
 
       for (const factory of factories) {
-        const fname = factory.name || ('Factory ' + (factories.indexOf(factory)+1));
+        const fname_initial = factory.name || ('Factory ' + (factories.indexOf(factory)+1));
+        let fname = fname_initial;
         appendLog('--- ' + fname + ' ---');
 
         // Track what we extracted per factory
@@ -1994,11 +2032,17 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
         for (const slot of slotFiles) {
           appendLog('  Reading ' + slot.label + ': ' + slot.file.name);
           const r = await parseFile(slot.file, slot.hint, fname);
+          // Use auto-detected factory name if found
+          if (r.detectedFactory && r.detectedFactory !== fname) {
+            appendLog('  → Factory detected: ' + r.detectedFactory);
+            fname = r.detectedFactory;
+            updateFactory(factory.id, 'name', r.detectedFactory);
+          }
           const gotPi = (r.pi_items || []).length;
           const gotPl = (r.pl_items || []).length;
           const gotDpl = (r.dpl_items || []).length;
           appendLog('    PI:' + gotPi + ' PL:' + gotPl + ' DPL:' + gotDpl);
-          if (gotPi === 0 && gotPl === 0) appendLog('    ⚠️ No items found — check console (F12) for header details');
+          if (gotPi === 0 && gotPl === 0 && gotDpl === 0) appendLog('    ⚠️ No items found in this file');
           if (gotPi > piItems.length) piItems = r.pi_items;
           if (gotPl > plItems.length) plItems = r.pl_items;
           if (gotDpl > dplExtracted.length) dplExtracted = r.dpl_items;
