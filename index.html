@@ -2321,63 +2321,79 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
         {step === 2 && (
           <>
             <div className="alert alert-info" style={{ fontSize: 12 }}>
-              📎 Add one block per factory. Upload files in whichever slots apply — all slots are optional.<br/>
-              If factory sends everything in one file → upload in <strong>PI slot only</strong> (system reads all sheets).<br/>
-              If separate files → upload each in its own slot.
+              📎 Upload <strong>all factory files</strong> for this shipment at once. Select multiple files using Ctrl+Click or Shift+Click.<br/>
+              The system reads every file and auto-detects which factory it belongs to. No need to organise by factory.
             </div>
-            {factories.map((factory, fi) => (
-              <div key={factory.id} style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', borderRadius: 12, padding: 16, marginBottom: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-light)', minWidth: 70 }}>Factory {fi+1}</span>
-                  <FactorySearch
-                    value={factory.name}
-                    onChange={name => updateFactory(factory.id, 'name', name)}
-                    factoryList={factoryList}
-                    style={{ flex: 1 }}
-                  />
-                  {factories.length > 1 && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => removeFactory(factory.id)}>✕</button>}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                  {[
-                    { key: 'piFile', label: '📄 Invoice (PI)', hint: 'PI/Invoice file or combined file' },
-                    { key: 'plFile', label: '📦 Packing List (PL)', hint: 'PL file if sent separately' },
-                    { key: 'dplFile', label: '📋 Detailed PL (DPL)', hint: 'DPL file if sent separately' },
-                  ].map(slot => (
-                    <div key={slot.key}>
-                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 5 }}>{slot.label}</label>
-                      <input type="file" accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.png,.jpg,.jpeg"
-                        onChange={e => updateFactory(factory.id, slot.key, e.target.files[0])}
-                        style={{ width: '100%', background: 'var(--surface)', border: '1px dashed var(--navy-border)', borderRadius: 8, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer' }} />
-                      {factory[slot.key] && (
-                        <div style={{ fontSize: 10, color: 'var(--green)', marginTop: 3 }}>✓ {factory[slot.key].name}</div>
-                      )}
-                      {!factory[slot.key] && (
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>{slot.hint}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+
+            {/* Multi-file upload zone */}
+            <div style={{ marginBottom: 16 }}>
+              <input
+                type="file"
+                multiple
+                accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.png,.jpg,.jpeg"
+                onChange={e => {
+                  const files = Array.from(e.target.files);
+                  // Create one factory block per file, auto-named from filename
+                  const newFactories = files.map((file, i) => ({
+                    id: Date.now() + i,
+                    name: file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                    piFile: file,
+                    plFile: null,
+                    dplFile: null,
+                  }));
+                  setFactories(newFactories);
+                }}
+                style={{
+                  width: '100%', background: 'var(--navy)',
+                  border: '2px dashed var(--accent)', borderRadius: 12,
+                  padding: '24px 16px', color: 'var(--text-primary)',
+                  fontSize: 14, fontFamily: 'inherit', cursor: 'pointer',
+                  textAlign: 'center', display: 'block'
+                }}
+              />
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, textAlign: 'center' }}>
+                Hold Ctrl (Windows) or ⌘ (Mac) to select multiple files
               </div>
-            ))}
-            <button className="btn btn-secondary btn-sm" onClick={addFactory} style={{ width: '100%', justifyContent: 'center', marginBottom: 12 }}>
-              + Add Another Factory to this Shipment
-            </button>
+            </div>
+
+            {/* Show uploaded files with factory name edit */}
+            {factories.some(f => f.piFile) && (
+              <div style={{ marginBottom: 14 }}>
+                <div className="sh-title" style={{ marginBottom: 8 }}>{factories.filter(f=>f.piFile).length} file(s) ready — verify factory names:</div>
+                {factories.filter(f => f.piFile).map((factory, fi) => (
+                  <div key={factory.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--navy)', border: '1px solid var(--navy-border)', borderRadius: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: 'var(--green)' }}>✓</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{factory.piFile.name}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>→</span>
+                    <FactorySearch
+                      value={factory.name}
+                      onChange={name => updateFactory(factory.id, 'name', name)}
+                      factoryList={factoryList}
+                      style={{ flex: 1 }}
+                    />
+                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)', fontSize: 11 }} onClick={() => removeFactory(factory.id)}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {parseLog.length > 0 && (
-              <div style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontFamily: 'monospace', fontSize: 11, maxHeight: 150, overflowY: 'auto' }}>
+              <div style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontFamily: 'monospace', fontSize: 11, maxHeight: 180, overflowY: 'auto' }}>
                 {parseLog.map((line, i) => (
                   <div key={i} style={{ color: line.startsWith('✓') || line.startsWith('Total') ? 'var(--green)' : line.startsWith('⚠') || line.startsWith('Error') ? 'var(--gold)' : line.startsWith('---') ? 'var(--accent-light)' : 'var(--text-muted)', padding: '1px 0' }}>{line}</div>
                 ))}
               </div>
             )}
+
             <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, marginBottom: 8 }}>— or —</div>
             <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center', marginBottom: 16 }}
-              onClick={() => { setItems([{ description:'',color:'',quantity:0,factory_name:factories[0]?.name||'',factory_price:0,unit_price:'',cc_price:'',net_weight:0,gross_weight:0,packages:0,cbm:0,order_number:'',price_auto:false }]); setStep(3); }}>
+              onClick={() => { setItems([{ description:'',color:'',quantity:0,factory_name:'',factory_price:0,unit_price:'',cc_price:'',net_weight:0,gross_weight:0,packages:0,cbm:0,order_number:'',price_auto:false }]); setStep(3); }}>
               ✏️ Skip upload — enter items manually
             </button>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
               <button className="btn btn-secondary" onClick={() => setStep(1)}>← Back</button>
-              <button className="btn btn-primary" onClick={processAllFiles} disabled={parsing}>
-                {parsing ? '⏳ Reading files...' : '📖 Read & Extract Items →'}
+              <button className="btn btn-primary" onClick={processAllFiles} disabled={parsing || !factories.some(f => f.piFile)}>
+                {parsing ? '⏳ Reading ' + factories.filter(f=>f.piFile).length + ' files...' : '📖 Read & Extract All Files →'}
               </button>
             </div>
           </>
