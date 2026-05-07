@@ -1431,16 +1431,21 @@ async function readAllSheets(file) {
 
 // Find header row index (row with most non-empty cells in first 15 rows)
 // ─── SMART EXTRACTION ENGINE ─────────────────────────────────
+// ─── COMPLETE EXTRACTION ENGINE ──────────────────────────────
+// Supports: Bangde, HaiHong, Feifan, Daikun, Decoration, E-TEX,
+//           Buwei, ALNO, NG/Neogold, Mingrong, Miju, Tonghui,
+//           Tonghao, Beyond, Xinrun, Leji and generic formats
+
 function findHeaderRow(rows) {
   let best = 0, bestScore = 0;
   rows.slice(0, 20).forEach((row, i) => {
     const text = row.map(c => String(c||'').toUpperCase()).join(' ');
     let score = 0;
-    if (text.match(/\bITEM\b|\bDESCRIPTION\b|\bFABRIC\b/)) score += 3;
-    if (text.match(/\bQTY\b|\bQUANTITY\b|\bMETER\b|\bMTRS?\b/)) score += 3;
+    if (text.match(/\bITEM\b|\bDESCRIPTION\b|\bDESIGN\b|\bFABRIC\b/)) score += 3;
+    if (text.match(/\bQTY\b|\bQUANTITY\b|\bMETER\b|\bMTRS?\b|\bMTS\b/)) score += 3;
     if (text.match(/\bPRICE\b|\bAMOUNT\b|\bFOB\b/)) score += 2;
-    if (text.match(/\bCOLOU?R\b/)) score += 2;
-    if (text.match(/\bORDER\b|\bROLL\b/)) score += 1;
+    if (text.match(/\bCOLOU?R\b|\bCOL\b/)) score += 2;
+    if (text.match(/\bORDER\b|\bROLL\b|\bPO\b/)) score += 1;
     if (text.match(/N\.?W\.?|G\.?W\.?|GROSS|NET/)) score += 1;
     if (score > bestScore) { bestScore = score; best = i; }
   });
@@ -1448,27 +1453,48 @@ function findHeaderRow(rows) {
 }
 
 function detectFactoryFormat(rows) {
-  const allText = rows.slice(0, 20).flat().map(c => String(c||'').toUpperCase()).join(' ');
+  const allText = rows.slice(0, 25).flat().map(c => String(c||'').toUpperCase()).join(' ');
   if (allText.includes('UNIT PRICE ($/M)') || allText.includes('UNIT PRICE ($')) return 'feifan';
   if (allText.includes('DESCRIPTIONS') && allText.includes('ORDER NO.')) return 'haihong';
-  if (allText.includes('ARTNO') || (allText.includes('KAAN') && allText.includes('MTRS') && !allText.includes('QTY(M)'))) return 'daikun';
+  if (allText.includes('ARTNO') || allText.includes('QLTYNO')) return 'daikun';
   if (allText.includes('UNIT/PRICE')) return 'bangde';
+  if (allText.includes('FOB $/M') || (allText.includes('DESIGN') && allText.includes('COLOR') && allText.includes('QUANTITY (MTS)'))) return 'etex';
+  if (allText.includes('MARKS & NO') || allText.includes('DESCRIPTION OF COMMODITY')) return 'miju';
+  if (allText.includes('PO/NO') && allText.includes('DESIGN')) return 'neogold';
+  if (allText.includes('NET METER') && allText.includes('ROLL NO')) return 'mingrong';
+  if (allText.includes('WIDTH(CM)') && allText.includes('QUANTITY(M)') && allText.includes('UNIT PRICE')) return 'hdp';
+  if (allText.includes("SENSEILON") || allText.includes('VPF') || allText.includes('NET QTY(M)')) return 'senseilon';
+  if (allText.includes('品名') && (allText.includes('单价') || allText.includes('总值'))) return 'runfun';
+  if (allText.includes('CONTRACT NO') || allText.includes('CONISGNEE') || allText.includes('CONSIGNEE')) return 'generic';
+  if ((allText.includes('ITEM NO') && allText.includes('COLOUR NO')) || (allText.includes('PO NUMBER') && allText.includes('UNITE PRICE'))) return 'feifan_style';
   return 'generic';
+}
+
+function findCol(headers, keywords) {
+  for (const kw of keywords) {
+    const idx = headers.findIndex(h => String(h||'').toUpperCase().includes(kw));
+    if (idx >= 0) return idx;
+  }
+  return -1;
 }
 
 function extractPI(rows, factoryName) {
   const items = [];
   const fmt = detectFactoryFormat(rows);
-  console.log('PI format:', fmt, factoryName);
+  console.log('PI format:', fmt, '|', factoryName);
 
-  if (fmt === 'feifan') {
+  if (fmt === 'feifan' || fmt === 'feifan_style') {
+    // Feifan, Buwei, Beyond, Xinrun, Leji, Run&Fun
+    // Cols: S/N | Item NO. | Colour No. | Quantity (MTS/M) | Unit Price | Amount | [Order No]
     const hi = findHeaderRow(rows);
     const headers = rows[hi].map(c => String(c||'').toUpperCase());
-    const oc = findCol(headers, ['ORDER']);
-    const dc = findCol(headers, ['ITEM NO','ITEM']);
-    const cc = findCol(headers, ['COLOUR NO','COLOUR','COLOR']);
-    const qc = findCol(headers, ['QUANTITY','QTY']);
+    // Row below header sometimes has sub-headers
+    const nextRow = rows[hi+1] ? rows[hi+1].map(c => String(c||'').toUpperCase()) : [];
+    const dc = findCol(headers, ['ITEM NO','ITEM','DESCRIPTION','DESIGN','FABRIC']);
+    const cc = findCol(headers, ['COLOUR NO','COLOUR','COLOR','COL']);
+    const qc = findCol(headers, ['QUANTITY','QTY','METER','MTS','M)']);
     const pc = findCol(headers, ['UNIT PRICE','PRICE']);
+    const oc = findCol(headers, ['ORDER','PO','KAAN','CONTRACT']);
     for (let i = hi+1; i < rows.length; i++) {
       const row = rows[i];
       const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
@@ -1479,8 +1505,9 @@ function extractPI(rows, factoryName) {
     }
 
   } else if (fmt === 'haihong') {
+    // HaiHong: Row N = ORDER NO. | ITEM | COLOR ... Row N+1 data starts
     let dataStart = -1;
-    for (let i = 0; i < rows.length; i++) {
+    for (let i = 0; i < Math.min(rows.length, 20); i++) {
       if (String(rows[i][0]||'').toUpperCase().includes('ORDER NO')) { dataStart = i + 1; break; }
     }
     if (dataStart < 0) dataStart = findHeaderRow(rows) + 1;
@@ -1488,48 +1515,146 @@ function extractPI(rows, factoryName) {
       const row = rows[i];
       const orderNo = String(row[0]||'').trim();
       const itemRaw = String(row[1]||'').trim();
-      if (!orderNo || !itemRaw || orderNo.toUpperCase().includes('TOTAL') || !orderNo.match(/KAAN/i)) continue;
+      if (!orderNo || !itemRaw || !orderNo.match(/KAAN/i)) continue;
+      if (orderNo.toUpperCase().includes('TOTAL')) continue;
       const qty = parseFloat(row[4]) || 0;
       const price = parseFloat(row[6]) || 0;
       if (!qty && !price) continue;
       const parts = itemRaw.split(' ');
       const color = parts.length > 1 ? parts[parts.length-1] : '';
       const desc = parts.length > 1 ? parts.slice(0,-1).join(' ') : itemRaw;
-      items.push({ description: desc, color: color, quantity: qty, factory_price: price, net_weight: 0, gross_weight: 0, order_number: orderNo, factory_name: factoryName });
+      items.push({ description: desc, color, quantity: qty, factory_price: price, net_weight: 0, gross_weight: 0, order_number: orderNo, factory_name: factoryName });
     }
 
   } else if (fmt === 'daikun') {
+    // Daikun & Decoration: item+color+order merged in col0 "KAAN 1300 VIXY SAND"
+    // Header row has DESCRIPTION | ARTNO/QLTYNO | QUANTITY | UNIT PRICE
     let headerRow = -1;
     for (let i = 0; i < rows.length; i++) {
       const text = rows[i].map(c => String(c||'').toUpperCase()).join(' ');
-      if (text.includes('DESCRIPTION') && text.includes('QUANTITY') && text.includes('UNIT PRICE')) { headerRow = i; break; }
+      if ((text.includes('DESCRIPTION') || text.includes('ARTNO') || text.includes('QLTYNO')) && text.includes('QUANTITY') && text.includes('UNIT PRICE')) { headerRow = i; break; }
     }
     if (headerRow < 0) headerRow = findHeaderRow(rows);
+    const headers = rows[headerRow].map(c => String(c||'').toUpperCase());
+    const qcIdx = findCol(headers, ['QUANTITY','QTY','MTRS','METER']);
+    const pcIdx = findCol(headers, ['UNIT PRICE','PRICE','FOB']);
     for (let i = headerRow+2; i < rows.length; i++) {
       const row = rows[i];
       const col0 = String(row[0]||'').trim();
       if (!col0 || !col0.match(/KAAN/i)) continue;
-      if (col0.match(/^\d+%/) || col0.match(/^FROM\s+/i) || col0.match(/^TOTAL/i) || col0.match(/^PACKAGE/i) || col0.match(/^THE\s/i) || col0.match(/^BENEFIC/i)) continue;
-      const qty = parseFloat(row[4]) || 0;
-      const price = parseFloat(row[6]) || 0;
+      if (col0.match(/^(TOTAL|THE GOODS|BENEFICIARY|FROM|PACKAGE|SHIPMENT|SUPPLIER|100%|92%|POLYESTER|SAY)/i)) continue;
+      const qty = qcIdx >= 0 ? parseFloat(row[qcIdx]) || 0 : parseFloat(row[4]) || 0;
+      const price = pcIdx >= 0 ? parseFloat(row[pcIdx]) || 0 : parseFloat(row[6]) || 0;
       if (!qty && !price) continue;
+      // Parse "KAAN 1300 VIXY SAND" -> order=KAAN 1300, desc=VIXY, color=SAND
       const match = col0.match(/^(KAAN\s+[\w-]+)\s+(.+?)\s+(\S+)$/i);
       let desc = col0, color = '', orderNo = '';
       if (match) { orderNo = match[1]; desc = match[2]; color = match[3]; }
-      items.push({ description: desc, color: color, quantity: qty, factory_price: price, net_weight: 0, gross_weight: 0, order_number: orderNo, factory_name: factoryName });
+      items.push({ description: desc, color, quantity: qty, factory_price: price, net_weight: 0, gross_weight: 0, order_number: orderNo, factory_name: factoryName });
+    }
+
+  } else if (fmt === 'etex') {
+    // E-TEX: Description | PO | Design | Color | Quantity (Mts) | Unit Price (FOB $/M) | Total
+    const hi = findHeaderRow(rows);
+    const headers = rows[hi].map(c => String(c||'').toUpperCase());
+    const oc = findCol(headers, ['PO','ORDER']);
+    const dc = findCol(headers, ['DESIGN','ITEM','DESCRIPTION']);
+    const cc = findCol(headers, ['COLOR','COLOUR']);
+    const qc = findCol(headers, ['QUANTITY','QTY','MTS','METER']);
+    const pc = findCol(headers, ['UNIT PRICE','PRICE']);
+    for (let i = hi+1; i < rows.length; i++) {
+      const row = rows[i];
+      const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
+      const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
+      const price = pc >= 0 ? parseFloat(row[pc]) || 0 : 0;
+      if (!isValidItem(desc, qty, price)) continue;
+      items.push({ description: desc, color: cc >= 0 ? String(row[cc]||'').trim() : '', quantity: qty, factory_price: price, net_weight: 0, gross_weight: 0, order_number: oc >= 0 ? String(row[oc]||'').trim() : '', factory_name: factoryName });
+    }
+
+  } else if (fmt === 'miju') {
+    // Miju: Marks & No. | PO# | Description | Mill's Code | Quantity(M) | Roll | N.W | G.W
+    // Data rows have STYLE/COLOR/YARD/ROLL# labels mixed in - skip those
+    const hi = findHeaderRow(rows);
+    const headers = rows[hi].map(c => String(c||'').toUpperCase());
+    const oc = findCol(headers, ['PO#','PO','ORDER','KAAN']);
+    const dc = findCol(headers, ['DESCRIPTION','COMMODITY','ITEM','DESIGN']);
+    const qc = findCol(headers, ['QUANTITY','QTY','M)','METER']);
+    const pc = findCol(headers, ['UNIT PRICE','PRICE']);
+    for (let i = hi+1; i < rows.length; i++) {
+      const row = rows[i];
+      const orderNo = oc >= 0 ? String(row[oc]||'').trim() : '';
+      const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
+      // Skip label rows
+      if (!orderNo.match(/KAAN/i) && !desc) continue;
+      if (['STYLE','COLOR','COLOUR','YARD','ROLL#','LOT#','COUNTRY'].includes(String(row[0]||'').toUpperCase().trim())) continue;
+      const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
+      const price = pc >= 0 ? parseFloat(row[pc]) || 0 : 0;
+      if (!isValidItem(desc, qty, price)) continue;
+      items.push({ description: desc, color: '', quantity: qty, factory_price: price, net_weight: 0, gross_weight: 0, order_number: orderNo, factory_name: factoryName });
+    }
+
+  } else if (fmt === 'neogold') {
+    // NG/Neogold: PO/NO. | DESIGN | QUANTITY | M | UNIT PRICE | AMOUNT
+    const hi = findHeaderRow(rows);
+    const headers = rows[hi].map(c => String(c||'').toUpperCase());
+    const oc = findCol(headers, ['PO/NO','PO NO','ORDER','KAAN']);
+    const dc = findCol(headers, ['DESIGN','ITEM','DESCRIPTION']);
+    const qc = findCol(headers, ['QUANTITY','QTY']);
+    const pc = findCol(headers, ['UNIT PRICE','PRICE']);
+    for (let i = hi+1; i < rows.length; i++) {
+      const row = rows[i];
+      const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
+      const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
+      const price = pc >= 0 ? parseFloat(row[pc]) || 0 : 0;
+      if (!isValidItem(desc, qty, price)) continue;
+      items.push({ description: desc, color: '', quantity: qty, factory_price: price, net_weight: 0, gross_weight: 0, order_number: oc >= 0 ? String(row[oc]||'').trim() : '', factory_name: factoryName });
+    }
+
+  } else if (fmt === 'hdp') {
+    // HDP (HuangDaoPo): DESCRIPTION | COLOR | WIDTH(CM) | QUANTITY(M) | COMPOSITION | UNIT PRICE | TOTAL
+    const hi = findHeaderRow(rows);
+    const headers = rows[hi].map(c => String(c||'').toUpperCase());
+    const dc = findCol(headers, ['DESCRIPTION','ITEM','DESIGN','NAME']);
+    const cc = findCol(headers, ['COLOR','COLOUR']);
+    const qc = findCol(headers, ['QUANTITY(M)','QUANTITY','QTY']);
+    const pc = findCol(headers, ['UNIT PRICE','PRICE']);
+    for (let i = hi+1; i < rows.length; i++) {
+      const row = rows[i];
+      const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
+      const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
+      const price = pc >= 0 ? parseFloat(row[pc]) || 0 : 0;
+      if (!isValidItem(desc, qty, price)) continue;
+      items.push({ description: desc, color: cc >= 0 ? String(row[cc]||'').trim() : '', quantity: qty, factory_price: price, net_weight: 0, gross_weight: 0, order_number: '', factory_name: factoryName });
+    }
+
+  } else if (fmt === 'runfun') {
+    // Run&Fun: ORDER NO. | 品名 (item) | 数量 (qty) | 单价 (price) | 总值 (amount)
+    const hi = findHeaderRow(rows);
+    const headers = rows[hi].map(c => String(c||'').toUpperCase());
+    const oc = findCol(headers, ['ORDER NO','ORDER','KAAN','订单']);
+    const dc = findCol(headers, ['品名','DESCRIPTIONS','DESCRIPTION','ITEM']);
+    const qc = findCol(headers, ['数量','QUANTITIES','QUANTITY','QTY','MTS']);
+    const pc = findCol(headers, ['单价','UNIT PRICE','PRICE']);
+    for (let i = hi+1; i < rows.length; i++) {
+      const row = rows[i];
+      const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
+      const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
+      const price = pc >= 0 ? parseFloat(row[pc]) || 0 : 0;
+      if (!isValidItem(desc, qty, price)) continue;
+      items.push({ description: desc, color: '', quantity: qty, factory_price: price, net_weight: 0, gross_weight: 0, order_number: oc >= 0 ? String(row[oc]||'').trim() : '', factory_name: factoryName });
     }
 
   } else {
-    // Generic + Bangde
+    // Generic - Bangde, Tonghui, Tonghao, ALNO (when Excel available)
     const hi = findHeaderRow(rows);
     const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
     const dc = findCol(headers, ['ITEM','DESCRIPTION','FABRIC','DESIGN','QUALITY','PRODUCT','NAME']);
     const cc = findCol(headers, ['COLOR','COLOUR','COL']);
-    const qc = findCol(headers, ['QTY(M)','QUANTITY    (M)','QUANTITY','QTY','METER','MTR','MTS','LENGTH']);
+    const qc = findCol(headers, ['QTY(M)','QUANTITY    (M)','QUANTITY','QTY','METER','MTS','M)','LENGTH']);
     const pc = findCol(headers, ['UNIT/PRICE','UNIT PRICE','FOB PRICE','PRICE USD','FOB USD','PRICE/M','UNIT COST','PRICE']);
     const nwc = findCol(headers, ['N.W.(KGS)','N.W.','NET WEIGHT','NET WT']);
     const gwc = findCol(headers, ['G.W.(KGS','G.W.','GROSS WEIGHT','GROSS WT']);
-    const oc = findCol(headers, ['ORDER NO','ORDER No','PO NO','KAAN','ORDER']);
+    const oc = findCol(headers, ['ORDER NO','ORDER No','PO NO','KAAN','ORDER','CONTRACT']);
     for (let i = hi+1; i < rows.length; i++) {
       const row = rows[i];
       const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
@@ -1550,13 +1675,13 @@ function extractPL(rows) {
     let dataStart = -1;
     for (let i = 0; i < rows.length; i++) {
       const text = rows[i].map(c => String(c||'').toUpperCase()).join(' ');
-      if (text.includes('QUANTITY') && text.includes('PACKAGES') && text.includes('N/W')) { dataStart = i+1; break; }
+      if (text.includes('QUANTITY') && (text.includes('PACKAGES') || text.includes('N/W'))) { dataStart = i+1; break; }
     }
     if (dataStart < 0) return items;
     for (let i = dataStart; i < rows.length; i++) {
       const row = rows[i];
       const desc = String(row[0]||'').trim();
-      if (!desc || desc.toUpperCase().includes('TOTAL') || SKIP_PATTERNS.test(desc)) continue;
+      if (!desc || SKIP_PATTERNS.test(desc)) continue;
       const qty = parseFloat(row[2]) || 0;
       if (!qty) continue;
       items.push({ description: desc, color: '', quantity: qty, packages: parseFloat(row[4])||0, net_weight: parseFloat(row[6])||0, gross_weight: parseFloat(row[8])||0, cbm: parseFloat(row[10])||0, order_number: '' });
@@ -1565,30 +1690,30 @@ function extractPL(rows) {
     let dataStart = -1;
     for (let i = 0; i < rows.length; i++) {
       const text = rows[i].map(c => String(c||'').toUpperCase()).join(' ');
-      if (text.includes('PACK') && text.includes('QUANTITY') && text.includes('GROSS')) { dataStart = i+1; break; }
+      if (text.includes('PACK') && text.includes('QUANTITY')) { dataStart = i+1; break; }
     }
     if (dataStart < 0) return items;
     for (let i = dataStart; i < rows.length; i++) {
       const row = rows[i];
       const col0 = String(row[0]||'').trim();
       if (!col0 || !col0.match(/KAAN/i)) continue;
-      const qty = parseFloat(row[4]) || 0;
       const match = col0.match(/^(KAAN\s+[\w-]+)\s+(.+?)\s+(\S+)$/i);
       let desc = col0, color = '';
       if (match) { desc = match[2]; color = match[3]; }
-      items.push({ description: desc, color: color, quantity: qty, packages: parseFloat(row[2])||0, net_weight: parseFloat(row[7])||0, gross_weight: parseFloat(row[6])||0, cbm: parseFloat(row[8])||0, order_number: '' });
+      items.push({ description: desc, color, quantity: parseFloat(row[4])||0, packages: parseFloat(row[2])||0, net_weight: parseFloat(row[7])||0, gross_weight: parseFloat(row[6])||0, cbm: parseFloat(row[8])||0, order_number: '' });
     }
   } else {
+    // Generic + all others
     const hi = findHeaderRow(rows);
     const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
-    const dc = findCol(headers, ['ITEM NO','ITEM','DESCRIPTION','FABRIC','DESIGN','NAME','QUALITY']);
+    const dc = findCol(headers, ['ITEM NO','ITEM','DESCRIPTION','FABRIC','DESIGN','NAME','QUALITY','COMMODITY']);
     const cc = findCol(headers, ['COLOUR NO','COLOUR','COLOR','COL']);
-    const qc = findCol(headers, ['QUANTITY (M)','QUANTITY    (M)','QTY(M)','QUANTITY','QTY','METER','MTR','MTS']);
-    const pkc = findCol(headers, ['ROLLS','PACKAGE','PKG','CARTON','CTN','BALE']);
-    const nwc = findCol(headers, ['NT WT','N.W.(KGS)','N.W.','NET WEIGHT','NET WT','NT WTN']);
-    const gwc = findCol(headers, ['GROSS WEIGHT','G.W.(KGS','G.W.','GROSS WT','GW']);
-    const cbmc = findCol(headers, ['MEAS.','CBM','VOLUME','M3']);
-    const oc = findCol(headers, ['ORDER NO','ORDER No','PO NO','KAAN','ORDER']);
+    const qc = findCol(headers, ['QUANTITY (M)','QUANTITY    (M)','QTY(M)','QUANTITY','QTY','METER','MTS','METERS']);
+    const pkc = findCol(headers, ['ROLLS','ROLL','PACKAGE','PKG','CARTON','CTN','BALE']);
+    const nwc = findCol(headers, ['NT WT','N.W.(KGS)','N.W.','NET WEIGHT','NET WT','NT WTN','NW','N.W']);
+    const gwc = findCol(headers, ['GROSS WEIGHT','G.W.(KGS','G.W.','GROSS WT','GW','G.W']);
+    const cbmc = findCol(headers, ['MEAS.','CBM','VOLUME','M3','VOL']);
+    const oc = findCol(headers, ['ORDER NO','ORDER No','PO#','PO NO','KAAN','ORDER','CONTRACT']);
     for (let i = hi+1; i < rows.length; i++) {
       const row = rows[i];
       const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
@@ -1603,12 +1728,12 @@ function extractPL(rows) {
 
 function extractDPL(rows, factoryName) {
   const items = [];
+  // Check for Daikun multi-column DPL
   const row0 = rows[0] ? rows[0].map(c => String(c||'').toUpperCase()) : [];
   const row2 = rows[2] ? rows[2].map(c => String(c||'').toUpperCase()) : [];
   const isDaikunDPL = row0.some(c => c.includes('KAAN')) && row2.some(c => c.match(/\bNO\b|\bLOT\b|\bMTR/));
-
   if (isDaikunDPL) {
-    for (let col = 0; col < rows[0].length; col += 4) {
+    for (let col = 0; col < (rows[0] || []).length; col += 4) {
       const itemName = String(rows[0][col]||'').trim();
       if (!itemName || !itemName.match(/KAAN/i)) continue;
       const color = String(rows[1] && rows[1][col]||'').trim();
@@ -1619,20 +1744,46 @@ function extractDPL(rows, factoryName) {
         const rollNo = String(rows[row][col]||'').replace('#','').trim();
         const qty = parseFloat(rows[row][col+2]) || 0;
         if (!rollNo || !qty) continue;
-        items.push({ description: desc, color: color, roll_number: rollNo, quantity_mts: qty, lot: String(rows[row][col+1]||'').trim(), order_number: order, factory_name: factoryName });
+        items.push({ description: desc, color, roll_number: rollNo, quantity_mts: qty, lot: String(rows[row][col+1]||'').trim(), order_number: order, factory_name: factoryName });
       }
     }
     return items;
   }
 
+  // Senseilon DPL: NO | Item Name | Color | VPF Code | Batch | Roll NO | Net QTY(M)
+  const allDplText = rows.slice(0, 5).flat().map(c => String(c||'').toUpperCase()).join(' ');
+  if (allDplText.includes('SENSEILON') || allDplText.includes('NET QTY(M)') || allDplText.includes('VPF')) {
+    const hi = findHeaderRow(rows);
+    const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
+    const dc = findCol(headers, ["SENSEILON'S ITEM NAME","ITEM NAME","ITEM"]);
+    const cc = findCol(headers, ["SENSEILON'S ITEM CODE","COLOR","COLOUR"]);
+    const bc = findCol(headers, ['BATCH NO','BATCH']);
+    const rc = findCol(headers, ['ROLL NO','ROLL']);
+    const qc = findCol(headers, ['NET QTY(M)','QTY(M)','QUANTITY','NET QTY']);
+    const oc = findCol(headers, ['REFERENCE PO','PO#','ORDER']);
+    for (let i = hi+1; i < rows.length; i++) {
+      const row = rows[i];
+      const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
+      const rollNo = rc >= 0 ? String(row[rc]||'').trim() : '';
+      if (!qty && !rollNo) continue;
+      // Parse item name from "SSL-2011" and color from "35 NAVY" pattern
+      const rawItem = dc >= 0 ? String(row[dc]||'').trim() : '';
+      const rawColor = cc >= 0 ? String(row[cc]||'').trim() : '';
+      items.push({ description: rawItem, color: rawColor, roll_number: rollNo || String(i), quantity_mts: qty, lot: bc >= 0 ? String(row[bc]||'').trim() : '', order_number: '', factory_name: factoryName });
+    }
+    return items;
+  }
+
+  // Standard DPL formats (HaiHong, Mingrong, Bangde Chinese, ALNO Chinese, Miju etc.)
   const hi = findHeaderRow(rows);
   const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
-  const oc = findCol(headers, ['CUSTOMER ORDER','ORDER NUMBER','ORDER NO','ORDER No','PO NO','KAAN','ORDER']);
-  const dc = findCol(headers, ['ITEM','DESCRIPTION','FABRIC','DESIGN','NAME']);
-  const cc = findCol(headers, ['COLOUR','COLOR','COL','\u989c\u8272\u53f7','\u989c\u8272']);
-  const rc = findCol(headers, ['ROLL NUMBER','ROLL NO','ROLL#','ROLL','\u5377\u53f7']);
-  const lc = findCol(headers, ['LOT NO','LOT','BATCH','DYE LOT','\u7f38\u53f7']);
-  const qc = findCol(headers, ['N.METER','NET METER','QUANTITY(M)NET','\u51c0\u7c73','QTY(M)','QUANTITY','QTY','METER','MTR','LENGTH','MTS']);
+  // Chinese headers: 卷号=roll, 净米=net meters, 缸号=lot, 色号=color, 品名=item
+  const oc = findCol(headers, ['CUSTOMER ORDER','ORDER NUMBER','ORDER NO','PO.','PO NO','KAAN','ORDER','客户单号','PO#']);
+  const dc = findCol(headers, ['ITEM','DESCRIPTION','FABRIC','DESIGN','NAME','品名']);
+  const cc = findCol(headers, ['COLOUR','COLOR','COL','颜色号','颜色','色号']);
+  const rc = findCol(headers, ['ROLL NUMBER','ROLL NO','ROLL#','ROLL','卷号','ROLL NO.']);
+  const lc = findCol(headers, ['LOT NO','LOT','BATCH','DYE LOT','缸号','LOT NO.']);
+  const qc = findCol(headers, ['N.METER','NET METER','净米','QTY(M)','QUANTITY','QTY','METER','MTR','LENGTH','MTS','NET(M)','NET M']);
 
   for (let i = hi+1; i < rows.length; i++) {
     const row = rows[i];
@@ -1641,9 +1792,74 @@ function extractDPL(rows, factoryName) {
     const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
     if (!qty && !rollNo) continue;
     if (SKIP_PATTERNS.test(String(desc||rollNo||''))) continue;
+    if (String(desc).toUpperCase().includes('TOTAL') || String(rollNo).toUpperCase().includes('TOTAL')) continue;
     items.push({ description: desc, color: cc >= 0 ? String(row[cc]||'').trim() : '', roll_number: rollNo || String(i-hi), quantity_mts: qty, lot: lc >= 0 ? String(row[lc]||'').trim() : '', order_number: oc >= 0 ? String(row[oc]||'').trim() : '', factory_name: factoryName });
   }
   return items;
+}
+
+// Parse a single factory file - reads all sheets and auto-detects types
+async function parseFile(file, hint, factoryName) {
+  if (!file) return { pi_items: [], pl_items: [], dpl_items: [] };
+  try {
+    const sheets = await readAllSheets(file);
+    let pi_items = [], pl_items = [], dpl_items = [];
+
+    if (Object.keys(sheets).length === 1) {
+      // Single sheet - try all types
+      const rows = Object.values(sheets)[0];
+      const fmt = detectFactoryFormat(rows);
+      if (hint === 'dpl' || fmt === 'mingrong') {
+        dpl_items = extractDPL(rows, factoryName);
+      } else if (hint === 'pl') {
+        pl_items = extractPL(rows);
+        if (!pl_items.length) pi_items = extractPI(rows, factoryName);
+      } else {
+        pi_items = extractPI(rows, factoryName);
+        if (!pi_items.length) pl_items = extractPL(rows);
+        if (!pi_items.length && !pl_items.length) dpl_items = extractDPL(rows, factoryName);
+      }
+    } else {
+      // Multiple sheets - classify each by name and content
+      for (const [sheetName, rows] of Object.entries(sheets)) {
+        const sn = sheetName.toUpperCase();
+        const fmt = detectFactoryFormat(rows);
+        const isDPL = sn.includes('DPL') || sn.includes('DETAIL') || sn.includes('明细') || fmt === 'mingrong';
+        const isPL = !isDPL && (sn.includes('PL') || sn.includes('PACK') || sn.includes('PACKING'));
+        const isPI = !isDPL && !isPL && (sn.includes('INV') || sn.includes('CI') || sn.includes('IV'));
+
+        if (isDPL && !dpl_items.length) {
+          const d = extractDPL(rows, factoryName);
+          if (d.length) dpl_items = d;
+        } else if (isPL && !pl_items.length) {
+          const p = extractPL(rows);
+          if (p.length) pl_items = p;
+        } else if (!pi_items.length) {
+          const p = extractPI(rows, factoryName);
+          if (p.length) pi_items = p;
+        }
+      }
+      // Fallbacks
+      if (!pi_items.length) {
+        for (const rows of Object.values(sheets)) {
+          const p = extractPI(rows, factoryName);
+          if (p.length) { pi_items = p; break; }
+        }
+      }
+      if (!pl_items.length) {
+        for (const rows of Object.values(sheets)) {
+          const p = extractPL(rows);
+          if (p.length) { pl_items = p; break; }
+        }
+      }
+    }
+
+    console.log(factoryName, '→ PI:', pi_items.length, 'PL:', pl_items.length, 'DPL:', dpl_items.length);
+    return { pi_items, pl_items, dpl_items };
+  } catch(err) {
+    console.error('parseFile error', factoryName, err);
+    return { pi_items: [], pl_items: [], dpl_items: [], error: err.message };
+  }
 }
 
 
