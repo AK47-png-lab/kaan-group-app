@@ -1351,19 +1351,58 @@ function CreditNoteModal({ invoice, customers, entity, onClose, onSaved }) {
 }
 
 // ─── PRICE DATABASE ───────────────────────────────────────────
-const PRICE_DB = {"DOLPHIN G084":{"B":{"factory":"Alno","factory_price":2.0,"customer_price":2.6}},"BONUCCI G111":{"B":{"factory":"Alno","factory_price":2.8,"customer_price":3.22}},"ARIES A1289":{"B":{"factory":"Alno","factory_price":1.75,"customer_price":2.06}},"ORION AL1286":{"B":{"factory":"Alno","factory_price":2.15,"customer_price":2.42}},"SIRIUS G708":{"B":{"factory":"Alno","factory_price":2.55,"customer_price":2.85}},"K210":{"B":{"factory":"Alno","factory_price":3.0,"customer_price":3.75}},"TOBACCO 1431":{"B":{"factory":"Aumerry","factory_price":3.9,"customer_price":4.35}},"TAURUS 1511A":{"B":{"factory":"Aumerry","factory_price":4.1,"customer_price":5.05}},"OTIS 17A40":{"B":{"factory":"Aumerry","factory_price":5.2,"customer_price":5.82}},"ANTIQUE 0200465-03":{"B":{"factory":"Aumerry","factory_price":4.45,"customer_price":5.0}},"ICARDI 200058":{"B":{"factory":"Aumerry","factory_price":4.5,"customer_price":5.2}},"RANIERI D1027":{"B":{"factory":"Decoration","factory_price":2.1,"customer_price":2.48}},"GALAGER D3017":{"B":{"factory":"Decoration","factory_price":2.17,"customer_price":2.58}},"EGYPT EN-136":{"B":{"factory":"Decoration","factory_price":2.11,"customer_price":2.45}},"HYDRA D9745":{"B":{"factory":"Decoration","factory_price":1.7,"customer_price":2.1}},"DUNE D9617":{"B":{"factory":"Decoration","factory_price":1.67,"customer_price":2.25}},"KEATON S14016 -6":{"B":{"factory":"Eastern","factory_price":3.4,"customer_price":3.65}},"DYBALA   AL1037":{"B":{"factory":"FEIFAN","factory_price":null,"customer_price":2.0}},"REBEL":{"B":{"factory":"FEIFAN","factory_price":2.8,"customer_price":4.54}},"RIO M-2503 COL.20 STONE":{"B":{"factory":"FEIFAN","factory_price":2.3,"customer_price":3.2}},"RIVA HCR10456Y 6005":{"B":{"factory":"Hengqun","factory_price":3.56,"customer_price":3.85}},"ANGORA JW510\u8f6cWDF":{"B":{"factory":"Hengqun","factory_price":5.0,"customer_price":6.24}},"T PERSA C0 JW510 COL. 5 ORO":{"B":{"factory":"Hengqun","factory_price":6.02,"customer_price":7.49}},"PANAMA  B191":{"B":{"factory":"JZW","factory_price":3.65,"customer_price":3.95}},"RAMIO DX138 COL. 2 WASH GREY":{"B":{"factory":"JZW","factory_price":4.47,"customer_price":6.36}},"RAMIO C0":{"B":{"factory":"JZW","factory_price":5.22,"customer_price":7.31}},"COLUMBA SJ663\u590d\u5408\u5e95\u5e03":{"B":{"factory":"JZW","factory_price":3.15,"customer_price":3.9}},"T DOVER CRESCENT MAYA A646-2G ADD C0":{"B":{"factory":"MAYA","factory_price":7.99,"customer_price":8.23}},"A785 WITHOUT C0":{"B":{"factory":"MAYA","factory_price":7.85,"customer_price":8.09}},"T IRVING A-785 FLAX COL. 2A SR":{"B":{"factory":"MAYA","factory_price":8.4,"customer_price":8.99}},"KNOLL A2635-3A":{"B":{"factory":"MAYA","factory_price":6.82,"customer_price":7.02}},"A2635 ADD SR":{"B":{"factory":"MAYA","factory_price":7.54,"customer_price":7.77}},"A2336":{"B":{"factory":"MAYA","factory_price":3.84,"customer_price":3.96}},"A2336 ADD SR":{"B":{"factory":"MAYA","factory_price":4.47,"customer_price":4.6}},"T A2266 LIGHT TAUPE COL. 16A":{"B":{"factory":"MAYA","factory_price":5.41,"customer_price":6.28}},"T BLEECKER RUST A3102-12A":{"B":{"factory":"MAYA","factory_price":4.55,"customer_price":4.69}},"T GIBSON WHEAT G049-10A SR":{"B":{"factory":"MAYA","factory_price":5.66,"customer_price":5.83}},"A2766 WITHOUT C0":{"B":{"factory":"MAYA","factory_price":7.38,"customer_price":7.6}},"A2766 WITH BACKING":{"B":{"factory":"MAYA","factory_price":7.78,"customer_price":8.01}},"A2766-20A ADD SR":{"B":{"factory":"MAYA","factory_price":8.59,"customer_price":8.85}},"INGENIUS A3556 COL 11A (INGRAM OCRE)":{"B":{"factory":"MAYA","factory_price":8.2,"customer_price":8.45}},"A2891-1A ADD C0":{"B":{"factory":"MAYA","factory_price":6.68,"customer_price":6.88}},"A2453":{"B":{"factory":"MAYA","factory_price":11.16,"customer_price":11.49}},"A2453 WITH BACKING":{"B":{"factory":"MAYA","factory_price":11.41,"customer_price":11.74}},"MONET A3528":{"B":{"factory":"MAYA","factory_price":18.98,"customer_price":19.55}},"SAM A3667 COL. 2A BEIGE":{"B":{"factory":"MAYA","factory_price":4.6,"customer_price":4.74}},"PREMIERE GRIS":{"B":{"factory":"MAYA","factory_price":null,"customer_price":3.02}},"SCOTT ML20120829-8":{"B":{"factory":"Minglong","factory_price":1.94,"customer_price":2.63}},"OBSESSION":{"B":{"factory":"Minglong","factory_price":1.9,"customer_price":2.83}},"KOBA(\u8f6cTONGHUI)":{"B":{"factory":"Minglong","factory_price":1.74,"customer_price":2.3}},"ADJUST BED FRAME (CAMA RECLINABLE)":{"B":{"factory":"ODLY","factory_price":232.5,"customer_price":291.0}},"CHAMP G1837":{"B":{"factory":"OUYA","factory_price":2.69,"customer_price":3.1}},"ELIXIR PKSD 495":{"B":{"factory":"Pekko","factory_price":2.88,"customer_price":3.6}},"ASTRO PK 855-B":{"B":{"factory":"Pekko","factory_price":2.85,"customer_price":3.7}},"ANTILOPE":{"B":{"factory":"Pekko","factory_price":3.68,"customer_price":4.17}},"WAFFLE PK529":{"B":{"factory":"Pekko","factory_price":2.2,"customer_price":3.05}},"ARMY Y703 HERRAJE":{"B":{"factory":"SITONG","factory_price":37.0,"customer_price":7.15}},"ARMY Y703 HERRAJE SHORT":{"B":{"factory":"SITONG","factory_price":35.0,"customer_price":7.1}},"USB":{"B":{"factory":"SITONG","factory_price":35.0,"customer_price":8.5}},"CONECTOR SECCIONAL CONNECT42":{"B":{"factory":"SITONG","factory_price":2.8,"customer_price":0.72}},"VELU GRIS":{"B":{"factory":"TONGHUI","factory_price":2.25,"customer_price":2.6}},"TANZANIA RY2578 COL 8 TAUPE":{"B":{"factory":"TONGHUI","factory_price":3.0,"customer_price":3.75}},"KOBA":{"B":{"factory":"TONGHUI","factory_price":1.58,"customer_price":2.3}},"JASPE ET50010B 006\u00a0 CAF\u00c9":{"B":{"factory":"Wanlong","factory_price":2.11,"customer_price":3.16}},"KOX LA718 COL. 9 TERRA":{"B":{"factory":"Wanlong","factory_price":1.55,"customer_price":1.75}},"T POWEL XBL-M-1404 05 ARENA":{"B":{"factory":"RUIXIN","factory_price":null,"customer_price":2.15}},"T TYLER XBL3145 COL 20 CHOCOLATE":{"B":{"factory":"RUIXIN","factory_price":1.8,"customer_price":1.85}},"POWEL XBL-M-1404 05 ARENA":{"B":{"factory":"ZHONGTAO","factory_price":null,"customer_price":2.15}},"LYRA XRSH125985":{"B":{"factory":"XINRUN","factory_price":1.95,"customer_price":null}},"CAPELLA XDR-E1074":{"B":{"factory":"LARBENE","factory_price":2.5,"customer_price":2.8}},"T AGATA LAR-2022-3":{"B":{"factory":"LARBENE","factory_price":2.45,"customer_price":3.11}},"CALIXTO XDR-2011":{"B":{"factory":"LARBENE/JIMMY","factory_price":2.5,"customer_price":2.63}},"SARA E2097 COL.22 CAF\u00c9":{"B":{"factory":"LARBENE","factory_price":1.6,"customer_price":2.15}},"MAIA H1032":{"B":{"factory":"HAIHONG","factory_price":1.69,"customer_price":2.12}},"T ANGEL COL. 1 CLOUD WITH BACKING":{"B":{"factory":"BEYOND","factory_price":2.15,"customer_price":2.6}},"VINICIUS COL. 18 DARK GREY":{"B":{"factory":"BEYOND","factory_price":1.3,"customer_price":1.55}},"T CANIS WY3234 COL. 5 SEPIA WITH BACKING":{"B":{"factory":"WEIYU","factory_price":2.6,"customer_price":3.2}},"ANGORA JW510":{"B":{"factory":"LQ","factory_price":3.78,"customer_price":6.24}},"PERSA C0":{"B":{"factory":"LQ","factory_price":4.16,"customer_price":7.49}},"DENVER 24JB175 COL. 14 LIGHT GREY":{"B":{"factory":"JINBO","factory_price":1.53,"customer_price":2.1}},"BERLIN HR23745D COL. 22 LIGHT GREY":{"B":{"factory":"HANGRUN","factory_price":3.4,"customer_price":4.25}},"HQ1232":{"B":{"factory":"HUAQIANG","factory_price":1.78,"customer_price":2.25}},"ITEM":{"Q":{"factory":"Factory","factory_price":null,"customer_price":null}},"BISON":{"Q":{"factory":"BRIGHT TEX","factory_price":4.8,"customer_price":5.2}},"AUTUMN (WITH EASY CLEAN)":{"Q":{"factory":"BRIGHT TEX","factory_price":4.51,"customer_price":4.88}},"SUNRISE (WITH EASY CLEAN) (BOX PACKAGE)":{"Q":{"factory":"BRIGHT TEX","factory_price":3.27,"customer_price":3.54}},"SHARPE":{"Q":{"factory":"BRIGHT TEX","factory_price":5.39,"customer_price":5.84}},"SUNRISE(NO EASY CLEAN ,BOX PACKAGE)":{"Q":{"factory":"BRIGHT TEX","factory_price":2.84,"customer_price":null}},"VEIN":{"Q":{"factory":"BRIGHT TEX","factory_price":9.8,"customer_price":10.395}},"ALUNA":{"Q":{"factory":"BRIGHT TEX","factory_price":4.45,"customer_price":4.7775}},"CRANCE":{"Q":{"factory":"BRIGHT TEX","factory_price":5.19,"customer_price":5.5545}},"LOYALTY":{"Q":{"factory":"BRIGHT TEX","factory_price":3.88,"customer_price":4.179}},"KAFFIR":{"Q":{"factory":"BRIGHT TEX","factory_price":4.35,"customer_price":4.7}},"VISIONARY":{"Q":{"factory":"BRIGHT TEX","factory_price":3.88,"customer_price":4.2}},"LUCENT":{"Q":{"factory":"BRIGHT TEX","factory_price":5.39,"customer_price":5.83}},"HARE":{"Q":{"factory":"BRIGHT TEX","factory_price":6.75,"customer_price":7.31}},"ONTARIO":{"AL":{"factory":"AEM(Weiyu)","factory_price":2.51,"customer_price":2.51}},"LILLE":{"AL":{"factory":"BUWEI(ZHONGTAO)","factory_price":2.46,"customer_price":2.46}},"RUDY":{"AL":{"factory":"DECORATION","factory_price":1.9,"customer_price":1.9}},"MONTREAL":{"AL":{"factory":"DECORATION","factory_price":1.75,"customer_price":1.75}},"TREVISO":{"AL":{"factory":"ETEX","factory_price":2.35,"customer_price":2.35}},"NIZA":{"AL":{"factory":"FEIFAN","factory_price":2.37,"customer_price":2.37}},"RUSSELL":{"AL":{"factory":"JZW","factory_price":2.5,"customer_price":2.5}},"ROCHELLE":{"AL":{"factory":"KAAN PTE (BANGDE)","factory_price":1.13,"customer_price":1.4}},"GOLF":{"AL":{"factory":"KAAN PTE (BANGDE)","factory_price":1.2,"customer_price":1.9}},"GANTE":{"AL":{"factory":"KAAN PTE (BANGDE)","factory_price":1.32,"customer_price":1.85}},"BART":{"AL":{"factory":"KAAN PTE(JES)","factory_price":2.0,"customer_price":2.05}},"ROCCO":{"AL":{"factory":"KAAN PTE(XINBAOLAI)","factory_price":1.9,"customer_price":1.95}},"HERA":{"AL":{"factory":"KELIDA","factory_price":3.85,"customer_price":3.85}},"LIRION":{"AL":{"factory":"LEJI(XINSHIXIN)","factory_price":3.05,"customer_price":3.05}},"MADISON":{"AL":{"factory":"SARAH BENE(LARBENE)","factory_price":2.78,"customer_price":2.78}},"HAVRE":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":1.65,"customer_price":1.65}},"BRAVE":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":2.1,"customer_price":2.1}},"ORLEANS":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":1.45,"customer_price":1.45}},"GRAVITY":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":2.0,"customer_price":2.0}},"POLARIS":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":2.4,"customer_price":2.4}},"LYON":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":2.185,"customer_price":2.185}},"HARPER":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":2.3,"customer_price":2.3}},"BONDY":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":1.75,"customer_price":1.75}},"RIVOLI":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":1.75,"customer_price":1.75}},"MALTA":{"AL":{"factory":"TONGHAO","factory_price":2.98,"customer_price":2.98}},"DENVER":{"AL":{"factory":"TONGHUI","factory_price":1.63,"customer_price":1.63}},"BURDEOS":{"AL":{"factory":"YUANBI(XINRUN)","factory_price":1.53,"customer_price":1.53}},"APOLO":{"AL":{"factory":"YUANBI(XINRUN)","factory_price":2.5,"customer_price":2.5}},"MOXIE":{"AL":{"factory":"WDF","factory_price":300.0,"customer_price":2.65}},"OTTAWA":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":1.85,"customer_price":1.85}},"TANNER":{"AL":{"factory":"KAAN PTE (BANGDE)","factory_price":2.06,"customer_price":2.1}},"TREND":{"AL":{"factory":"DECORATION","factory_price":1.74,"customer_price":1.74}},"COSMO":{"C":{"factory":"BYD","factory_price":2.2,"customer_price":null}},"HOLLAND VELVET":{"C":{"factory":"BYD","factory_price":1.62,"customer_price":null}},"SOLID":{"C":{"factory":"DEC","factory_price":1.55,"customer_price":null}},"ZENITH":{"C":{"factory":"E-TEX","factory_price":2.6,"customer_price":null}},"VERONA":{"C":{"factory":"NOVATEX","factory_price":4.4,"customer_price":null}},"ODYSSEY":{"C":{"factory":"XINRUN","factory_price":2.53,"customer_price":null}},"WINDSOR":{"C":{"factory":"XINSHIXIN","factory_price":3.85,"customer_price":null}},"GOSPEL":{"C":{"factory":"AUMERRY","factory_price":1.78,"customer_price":null}},"FLOYD":{"C":{"factory":"BANGDE","factory_price":1.3,"customer_price":null}},"BOLTON":{"C":{"factory":"BYD","factory_price":1.75,"customer_price":null}},"ENJOY PLUS":{"C":{"factory":"BYD","factory_price":1.35,"customer_price":null}},"FARRELL":{"C":{"factory":"BYD","factory_price":2.0,"customer_price":null}},"TWEED":{"C":{"factory":"FEIFAN","factory_price":2.0,"customer_price":null}},"DRYLAND":{"C":{"factory":"RUIXIN","factory_price":1.85,"customer_price":null}},"MIRAGE":{"C":{"factory":"MAYA","factory_price":7.38,"customer_price":null}},"JEFF":{"C":{"factory":"LONGING","factory_price":1.42,"customer_price":1.49}},"GLOSS":{"C":{"factory":"BYD","factory_price":2.1,"customer_price":null}},"LENY":{"C":{"factory":"BYD","factory_price":1.5,"customer_price":null}},"DUVAL":{"C":{"factory":"LARBENE","factory_price":3.68,"customer_price":null}},"MOHAIR(\u4e0d\u7ed9LBN\u505a\u4e86)":{"C":{"factory":"LARBENE","factory_price":2.98,"customer_price":null}},"MOHAIR\uff08\u4e0d\u505a\u9632\u6c34\uff09":{"C":{"factory":"Jimmy","factory_price":2.8,"customer_price":null}},"PIXEL":{"C":{"factory":"HIGHTEX","factory_price":1.41,"customer_price":null}},"SCAR":{"C":{"factory":"HIGHTEX","factory_price":2.35,"customer_price":null}},"CASSIS":{"C":{"factory":"HIGHTEX","factory_price":2.0,"customer_price":null}},"HADY CH":{"C":{"factory":"HIGHTEX","factory_price":3.1,"customer_price":null}},"RUSTY CH":{"C":{"factory":"HIGHTEX","factory_price":3.54,"customer_price":null}},"DAZZLE":{"C":{"factory":"BYD","factory_price":2.1,"customer_price":null}},"GLOW":{"C":{"factory":"FEIFAN","factory_price":3.0,"customer_price":null}},"RHONA":{"C":{"factory":"HIGHTEX","factory_price":2.0,"customer_price":null}},"ALBANI":{"C":{"factory":"JES","factory_price":2.35,"customer_price":null}},"DASH":{"C":{"factory":"JES","factory_price":3.5,"customer_price":null}},"REFLECT":{"C":{"factory":"LONGING","factory_price":2.0,"customer_price":null}},"HIGH LIVING":{"C":{"factory":"NEOGOLD","factory_price":4.39,"customer_price":null}},"BLOOM":{"C":{"factory":"WEIYU","factory_price":1.96,"customer_price":null}},"ANNA":{"C":{"factory":"XINSHIXIN","factory_price":2.8,"customer_price":null}},"BLEND":{"C":{"factory":"XINRUN","factory_price":1.81,"customer_price":null}},"DELUXE":{"C":{"factory":"XINRUN","factory_price":1.73,"customer_price":null}},"ALPHA":{"C":{"factory":"BANGDE","factory_price":0.9,"customer_price":null}},"VALENCIA":{"C":{"factory":"BYD","factory_price":1.91,"customer_price":null}},"NEXUS":{"C":{"factory":"KELIDA","factory_price":5.45,"customer_price":null}},"SKIPPER":{"C":{"factory":"ASSETEX","factory_price":4.3,"customer_price":null}},"BONGO":{"C":{"factory":"ASSETEX","factory_price":4.36,"customer_price":null}},"K18-77":{"C":{"factory":"LQ","factory_price":16.71,"customer_price":null}},"K18-118":{"C":{"factory":"LQ","factory_price":10.35,"customer_price":null}},"FUNK":{"C":{"factory":"MINGLONG","factory_price":1.15,"customer_price":null}},"MINDFUL":{"C":{"factory":"BYD","factory_price":1.45,"customer_price":null}},"MODENA":{"C":{"factory":"BYD","factory_price":1.85,"customer_price":null}},"FOREVER PLUS":{"C":{"factory":"HAIHONG","factory_price":2.0,"customer_price":null}}};
+const PRICE_DB = {"DOLPHIN G084":{"B":{"factory":"Alno","factory_price":2.0,"customer_price":2.6}},"BONUCCI G111":{"B":{"factory":"Alno","factory_price":2.8,"customer_price":3.22}},"ARIES A1289":{"B":{"factory":"Alno","factory_price":1.75,"customer_price":2.06}},"ORION AL1286":{"B":{"factory":"Alno","factory_price":2.15,"customer_price":2.42}},"SIRIUS G708":{"B":{"factory":"Alno","factory_price":2.55,"customer_price":2.85}},"K210":{"B":{"factory":"Alno","factory_price":3.0,"customer_price":3.75}},"TOBACCO 1431":{"B":{"factory":"Aumerry","factory_price":3.9,"customer_price":4.35}},"TAURUS 1511A":{"B":{"factory":"Aumerry","factory_price":4.1,"customer_price":5.05}},"OTIS 17A40":{"B":{"factory":"Aumerry","factory_price":5.2,"customer_price":5.82}},"ANTIQUE 0200465-03":{"B":{"factory":"Aumerry","factory_price":4.45,"customer_price":5.0}},"ICARDI 200058":{"B":{"factory":"Aumerry","factory_price":4.5,"customer_price":5.2}},"RANIERI D1027":{"B":{"factory":"Decoration","factory_price":2.1,"customer_price":2.48}},"GALAGER D3017":{"B":{"factory":"Decoration","factory_price":2.17,"customer_price":2.58}},"EGYPT EN-136":{"B":{"factory":"Decoration","factory_price":2.11,"customer_price":2.45}},"HYDRA D9745":{"B":{"factory":"Decoration","factory_price":1.7,"customer_price":2.1}},"DUNE D9617":{"B":{"factory":"Decoration","factory_price":1.67,"customer_price":2.25}},"KEATON S14016 -6":{"B":{"factory":"Eastern","factory_price":3.4,"customer_price":3.65}},"DYBALA   AL1037":{"B":{"factory":"FEIFAN","factory_price":null,"customer_price":2.0}},"REBEL":{"B":{"factory":"FEIFAN","factory_price":2.8,"customer_price":4.54}},"RIO M-2503 COL.20 STONE":{"B":{"factory":"FEIFAN","factory_price":2.3,"customer_price":3.2}},"RIVA HCR10456Y 6005":{"B":{"factory":"Hengqun","factory_price":3.56,"customer_price":3.85}},"ANGORA JW510\u8f6cWDF":{"B":{"factory":"Hengqun","factory_price":5.0,"customer_price":6.24}},"T PERSA C0 JW510 COL. 5 ORO":{"B":{"factory":"Hengqun","factory_price":6.02,"customer_price":7.49}},"PANAMA  B191":{"B":{"factory":"JZW","factory_price":3.65,"customer_price":3.95}},"RAMIO DX138 COL. 2 WASH GREY":{"B":{"factory":"JZW","factory_price":4.47,"customer_price":6.36}},"RAMIO C0":{"B":{"factory":"JZW","factory_price":5.22,"customer_price":7.31}},"COLUMBA SJ663\u590d\u5408\u5e95\u5e03":{"B":{"factory":"JZW","factory_price":3.15,"customer_price":3.9}},"T DOVER CRESCENT MAYA A646-2G ADD C0":{"B":{"factory":"MAYA","factory_price":7.99,"customer_price":8.23}},"A785 WITHOUT C0":{"B":{"factory":"MAYA","factory_price":7.85,"customer_price":8.09}},"T IRVING A-785 FLAX COL. 2A SR":{"B":{"factory":"MAYA","factory_price":8.4,"customer_price":8.99}},"KNOLL A2635-3A":{"B":{"factory":"MAYA","factory_price":6.82,"customer_price":7.02}},"A2635 ADD SR":{"B":{"factory":"MAYA","factory_price":7.54,"customer_price":7.77}},"A2336":{"B":{"factory":"MAYA","factory_price":3.84,"customer_price":3.96}},"A2336 ADD SR":{"B":{"factory":"MAYA","factory_price":4.47,"customer_price":4.6}},"T A2266 LIGHT TAUPE COL. 16A":{"B":{"factory":"MAYA","factory_price":5.41,"customer_price":6.28}},"T BLEECKER RUST A3102-12A":{"B":{"factory":"MAYA","factory_price":4.55,"customer_price":4.69}},"T GIBSON WHEAT G049-10A SR":{"B":{"factory":"MAYA","factory_price":5.66,"customer_price":5.83}},"A2766 WITHOUT C0":{"B":{"factory":"MAYA","factory_price":7.38,"customer_price":7.6}},"A2766 WITH BACKING":{"B":{"factory":"MAYA","factory_price":7.78,"customer_price":8.01}},"A2766-20A ADD SR":{"B":{"factory":"MAYA","factory_price":8.59,"customer_price":8.85}},"INGENIUS A3556 COL 11A (INGRAM OCRE)":{"B":{"factory":"MAYA","factory_price":8.2,"customer_price":8.45}},"A2891-1A ADD C0":{"B":{"factory":"MAYA","factory_price":6.68,"customer_price":6.88}},"A2453":{"B":{"factory":"MAYA","factory_price":11.16,"customer_price":11.49}},"A2453 WITH BACKING":{"B":{"factory":"MAYA","factory_price":11.41,"customer_price":11.74}},"MONET A3528":{"B":{"factory":"MAYA","factory_price":18.98,"customer_price":19.55}},"SAM A3667 COL. 2A BEIGE":{"B":{"factory":"MAYA","factory_price":4.6,"customer_price":4.74}},"PREMIERE GRIS":{"B":{"factory":"MAYA","factory_price":null,"customer_price":3.02}},"SCOTT ML20120829-8":{"B":{"factory":"Minglong","factory_price":1.94,"customer_price":2.63}},"OBSESSION":{"B":{"factory":"Minglong","factory_price":1.9,"customer_price":2.83}},"KOBA(\u8f6cTONGHUI)":{"B":{"factory":"Minglong","factory_price":1.74,"customer_price":2.3}},"ADJUST BED FRAME (CAMA RECLINABLE)":{"B":{"factory":"ODLY","factory_price":232.5,"customer_price":291.0}},"CHAMP G1837":{"B":{"factory":"OUYA","factory_price":2.69,"customer_price":3.1}},"ELIXIR PKSD 495":{"B":{"factory":"Pekko","factory_price":2.88,"customer_price":3.6}},"ASTRO PK 855-B":{"B":{"factory":"Pekko","factory_price":2.85,"customer_price":3.7}},"ANTILOPE":{"B":{"factory":"Pekko","factory_price":3.68,"customer_price":4.17}},"WAFFLE PK529":{"B":{"factory":"Pekko","factory_price":2.2,"customer_price":3.05}},"ARMY Y703 HERRAJE":{"B":{"factory":"SITONG","factory_price":37.0,"customer_price":7.15}},"ARMY Y703 HERRAJE SHORT":{"B":{"factory":"SITONG","factory_price":35.0,"customer_price":7.1}},"USB":{"B":{"factory":"SITONG","factory_price":35.0,"customer_price":8.5}},"CONECTOR SECCIONAL CONNECT42":{"B":{"factory":"SITONG","factory_price":2.8,"customer_price":0.72}},"VELU GRIS":{"B":{"factory":"TONGHUI","factory_price":2.25,"customer_price":2.6}},"TANZANIA RY2578 COL 8 TAUPE":{"B":{"factory":"TONGHUI","factory_price":3.0,"customer_price":3.75}},"KOBA":{"B":{"factory":"TONGHUI","factory_price":1.58,"customer_price":2.3}},"JASPE ET50010B 006\u00a0 CAF\u00c9":{"B":{"factory":"Wanlong","factory_price":2.11,"customer_price":3.16}},"KOX LA718 COL. 9 TERRA":{"B":{"factory":"Wanlong","factory_price":1.55,"customer_price":1.75}},"T POWEL XBL-M-1404 05 ARENA":{"B":{"factory":"RUIXIN","factory_price":null,"customer_price":2.15}},"T TYLER XBL3145 COL 20 CHOCOLATE":{"B":{"factory":"RUIXIN","factory_price":1.8,"customer_price":1.85}},"POWEL XBL-M-1404 05 ARENA":{"B":{"factory":"ZHONGTAO","factory_price":null,"customer_price":2.15}},"LYRA XRSH125985":{"B":{"factory":"XINRUN","factory_price":1.95,"customer_price":null}},"CAPELLA XDR-E1074":{"B":{"factory":"LARBENE","factory_price":2.5,"customer_price":2.8}},"T AGATA LAR-2022-3":{"B":{"factory":"LARBENE","factory_price":2.45,"customer_price":3.11}},"CALIXTO XDR-2011":{"B":{"factory":"LARBENE/JIMMY","factory_price":2.5,"customer_price":2.63}},"SARA E2097 COL.22 CAF\u00c9":{"B":{"factory":"LARBENE","factory_price":1.6,"customer_price":2.15}},"MAIA H1032":{"B":{"factory":"HAIHONG","factory_price":1.69,"customer_price":2.12}},"T ANGEL COL. 1 CLOUD WITH BACKING":{"B":{"factory":"BEYOND","factory_price":2.15,"customer_price":2.6}},"VINICIUS COL. 18 DARK GREY":{"B":{"factory":"BEYOND","factory_price":1.3,"customer_price":1.55}},"T CANIS WY3234 COL. 5 SEPIA WITH BACKING":{"B":{"factory":"WEIYU","factory_price":2.6,"customer_price":3.2}},"ANGORA JW510":{"B":{"factory":"LQ","factory_price":3.78,"customer_price":6.24}},"PERSA C0":{"B":{"factory":"LQ","factory_price":4.16,"customer_price":7.49}},"DENVER 24JB175 COL. 14 LIGHT GREY":{"B":{"factory":"JINBO","factory_price":1.53,"customer_price":2.1}},"BERLIN HR23745D COL. 22 LIGHT GREY":{"B":{"factory":"HANGRUN","factory_price":3.4,"customer_price":4.25}},"HQ1232":{"B":{"factory":"HUAQIANG","factory_price":1.78,"customer_price":2.25}},"ITEM":{"Q":{"factory":"Factory","factory_price":null,"customer_price":null}},"BISON":{"Q":{"factory":"BRIGHT TEX","factory_price":4.8,"customer_price":5.2}},"AUTUMN (WITH EASY CLEAN)":{"Q":{"factory":"BRIGHT TEX","factory_price":4.51,"customer_price":4.88}},"SUNRISE (WITH EASY CLEAN) (BOX PACKAGE)":{"Q":{"factory":"BRIGHT TEX","factory_price":3.27,"customer_price":3.54}},"SHARPE":{"Q":{"factory":"BRIGHT TEX","factory_price":5.39,"customer_price":5.84}},"SUNRISE(NO EASY CLEAN ,BOX PACKAGE)":{"Q":{"factory":"BRIGHT TEX","factory_price":2.84,"customer_price":null}},"VEIN":{"Q":{"factory":"BRIGHT TEX","factory_price":9.8,"customer_price":10.395}},"ALUNA":{"Q":{"factory":"BRIGHT TEX","factory_price":4.45,"customer_price":4.7775}},"CRANCE":{"Q":{"factory":"BRIGHT TEX","factory_price":5.19,"customer_price":5.5545}},"LOYALTY":{"Q":{"factory":"BRIGHT TEX","factory_price":3.88,"customer_price":4.179}},"KAFFIR":{"Q":{"factory":"BRIGHT TEX","factory_price":4.35,"customer_price":4.7}},"VISIONARY":{"Q":{"factory":"BRIGHT TEX","factory_price":3.88,"customer_price":4.2}},"LUCENT":{"Q":{"factory":"BRIGHT TEX","factory_price":5.39,"customer_price":5.83}},"HARE":{"Q":{"factory":"BRIGHT TEX","factory_price":6.75,"customer_price":7.31}},"ONTARIO":{"AL":{"factory":"AEM(Weiyu)","factory_price":2.51,"customer_price":2.51}},"LILLE":{"AL":{"factory":"BUWEI(ZHONGTAO)","factory_price":2.46,"customer_price":2.46}},"RUDY":{"AL":{"factory":"DECORATION","factory_price":1.9,"customer_price":1.9}},"MONTREAL":{"AL":{"factory":"DECORATION","factory_price":1.75,"customer_price":1.75}},"TREVISO":{"AL":{"factory":"ETEX","factory_price":2.35,"customer_price":2.35}},"NIZA":{"AL":{"factory":"FEIFAN","factory_price":2.37,"customer_price":2.37}},"RUSSELL":{"AL":{"factory":"JZW","factory_price":2.5,"customer_price":2.5}},"ROCHELLE":{"AL":{"factory":"KAAN PTE (BANGDE)","factory_price":1.13,"customer_price":1.4}},"GOLF":{"AL":{"factory":"KAAN PTE (BANGDE)","factory_price":1.2,"customer_price":1.9}},"GANTE":{"AL":{"factory":"KAAN PTE (BANGDE)","factory_price":1.32,"customer_price":1.85}},"BART":{"AL":{"factory":"KAAN PTE(JES)","factory_price":2.0,"customer_price":2.05}},"ROCCO":{"AL":{"factory":"KAAN PTE(XINBAOLAI)","factory_price":1.9,"customer_price":1.95}},"HERA":{"AL":{"factory":"KELIDA","factory_price":3.85,"customer_price":3.85}},"LIRION":{"AL":{"factory":"LEJI(XINSHIXIN)","factory_price":3.05,"customer_price":3.05}},"MADISON":{"AL":{"factory":"SARAH BENE(LARBENE)","factory_price":2.78,"customer_price":2.78}},"HAVRE":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":1.65,"customer_price":1.65}},"BRAVE":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":2.1,"customer_price":2.1}},"ORLEANS":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":1.45,"customer_price":1.45}},"GRAVITY":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":2.0,"customer_price":2.0}},"POLARIS":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":2.4,"customer_price":2.4}},"LYON":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":2.185,"customer_price":2.185}},"HARPER":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":2.3,"customer_price":2.3}},"BONDY":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":1.75,"customer_price":1.75}},"RIVOLI":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":1.75,"customer_price":1.75}},"MALTA":{"AL":{"factory":"TONGHAO","factory_price":2.98,"customer_price":2.98}},"DENVER":{"AL":{"factory":"TONGHUI","factory_price":1.63,"customer_price":1.63}},"BURDEOS":{"AL":{"factory":"YUANBI(XINRUN)","factory_price":1.53,"customer_price":1.53}},"APOLO":{"AL":{"factory":"YUANBI(XINRUN)","factory_price":2.5,"customer_price":2.5}},"MOXIE":{"AL":{"factory":"WDF","factory_price":300.0,"customer_price":2.65}},"OTTAWA":{"AL":{"factory":"SOUTH(BEYOND)","factory_price":1.85,"customer_price":1.85}},"TANNER":{"AL":{"factory":"KAAN PTE (BANGDE)","factory_price":2.06,"customer_price":2.1}},"TREND":{"AL":{"factory":"DECORATION","factory_price":1.74,"customer_price":1.74}},"COSMO":{"C":{"factory":"BYD","factory_price":2.2,"declared_factory_price":null,"customer_price":2.4,"dicatex_price":2.4,"formatex_price":2.4}},"HOLLAND VELVET":{"C":{"factory":"BYD","factory_price":1.62,"declared_factory_price":null,"customer_price":1.76,"dicatex_price":1.76,"formatex_price":1.76}},"SOLID":{"C":{"factory":"DEC","factory_price":1.55,"declared_factory_price":null,"customer_price":1.66,"dicatex_price":1.66,"formatex_price":1.66}},"ZENITH":{"C":{"factory":"E-TEX","factory_price":2.6,"declared_factory_price":null,"customer_price":2.8,"dicatex_price":2.8,"formatex_price":2.8}},"VERONA":{"C":{"factory":"NOVATEX","factory_price":4.4,"declared_factory_price":null,"customer_price":4.55,"dicatex_price":4.55,"formatex_price":4.55}},"ODYSSEY":{"C":{"factory":"XINRUN","factory_price":2.53,"declared_factory_price":null,"customer_price":2.8,"dicatex_price":2.8,"formatex_price":2.8}},"WINDSOR":{"C":{"factory":"XINSHIXIN","factory_price":3.85,"declared_factory_price":null,"customer_price":4.05,"dicatex_price":4.05,"formatex_price":4.05}},"GOSPEL":{"C":{"factory":"AUMERRY","factory_price":1.78,"declared_factory_price":null,"customer_price":1.9,"dicatex_price":1.9,"formatex_price":1.9}},"FLOYD":{"C":{"factory":"BANGDE","factory_price":1.3,"declared_factory_price":null,"customer_price":1.4,"dicatex_price":1.4,"formatex_price":1.4}},"BOLTON":{"C":{"factory":"BYD","factory_price":1.75,"declared_factory_price":null,"customer_price":1.85,"dicatex_price":1.85,"formatex_price":1.85}},"ENJOY PLUS":{"C":{"factory":"BYD","factory_price":1.35,"declared_factory_price":null,"customer_price":1.48,"dicatex_price":1.48,"formatex_price":1.48}},"FARRELL":{"C":{"factory":"BYD","factory_price":2.0,"declared_factory_price":null,"customer_price":2.1,"dicatex_price":2.1,"formatex_price":2.1}},"TWEED":{"C":{"factory":"FEIFAN","factory_price":2.0,"declared_factory_price":null,"customer_price":2.1,"dicatex_price":2.1,"formatex_price":2.1}},"DRYLAND":{"C":{"factory":"RUIXIN","factory_price":1.85,"declared_factory_price":null,"customer_price":1.95,"dicatex_price":1.95,"formatex_price":1.95}},"MIRAGE":{"C":{"factory":"MAYA","factory_price":7.38,"declared_factory_price":null,"customer_price":7.75,"dicatex_price":7.75,"formatex_price":7.75}},"JEFF":{"C":{"factory":"LONGING","factory_price":1.42,"declared_factory_price":1.49,"customer_price":1.53,"dicatex_price":1.5347,"formatex_price":1.5645}},"GLOSS":{"C":{"factory":"BYD","factory_price":2.1,"declared_factory_price":null,"customer_price":2.2,"dicatex_price":2.2,"formatex_price":2.2}},"LENY":{"C":{"factory":"BYD","factory_price":1.5,"declared_factory_price":1.33,"customer_price":1.58,"dicatex_price":1.3699,"formatex_price":1.3965}},"DUVAL":{"C":{"factory":"LARBENE","factory_price":3.68,"declared_factory_price":2.85,"customer_price":3.0,"dicatex_price":2.9355,"formatex_price":2.9925}},"MOHAIR(\u4e0d\u7ed9LBN\u505a\u4e86)":{"C":{"factory":"LARBENE","factory_price":2.98,"customer_price":null}},"MOHAIR\uff08\u4e0d\u505a\u9632\u6c34\uff09":{"C":{"factory":"Jimmy","factory_price":2.8,"customer_price":null}},"PIXEL":{"C":{"factory":"HIGHTEX","factory_price":1.41,"declared_factory_price":null,"customer_price":1.53,"dicatex_price":1.53,"formatex_price":1.53}},"SCAR":{"C":{"factory":"HIGHTEX","factory_price":2.35,"declared_factory_price":null,"customer_price":2.57,"dicatex_price":2.57,"formatex_price":2.57}},"CASSIS":{"C":{"factory":"HIGHTEX","factory_price":2.0,"declared_factory_price":null,"customer_price":2.15,"dicatex_price":2.15,"formatex_price":2.15}},"HADY CH":{"C":{"factory":"HIGHTEX","factory_price":3.1,"declared_factory_price":null,"customer_price":3.43,"dicatex_price":3.43,"formatex_price":3.43}},"RUSTY CH":{"C":{"factory":"HIGHTEX","factory_price":3.54,"declared_factory_price":null,"customer_price":3.87,"dicatex_price":3.87,"formatex_price":3.87}},"DAZZLE":{"C":{"factory":"BYD","factory_price":2.1,"declared_factory_price":null,"customer_price":2.21,"dicatex_price":2.21,"formatex_price":2.21}},"GLOW":{"C":{"factory":"FEIFAN","factory_price":3.0,"declared_factory_price":2.8,"customer_price":3.28,"dicatex_price":2.884,"formatex_price":2.94}},"RHONA":{"C":{"factory":"HIGHTEX","factory_price":2.0,"declared_factory_price":null,"customer_price":2.3,"dicatex_price":2.3,"formatex_price":2.3}},"ALBANI":{"C":{"factory":"","factory_price":2.35,"declared_factory_price":2.15,"customer_price":2.51,"dicatex_price":2.2145,"formatex_price":2.2575}},"DASH":{"C":{"factory":"JES","factory_price":3.5,"declared_factory_price":null,"customer_price":3.68,"dicatex_price":3.68,"formatex_price":3.68}},"REFLECT":{"C":{"factory":"LONGING","factory_price":2.0,"declared_factory_price":null,"customer_price":2.15,"dicatex_price":2.15,"formatex_price":2.15}},"HIGH LIVING":{"C":{"factory":"NEOGOLD","factory_price":4.39,"declared_factory_price":null,"customer_price":4.75,"dicatex_price":4.75,"formatex_price":4.75}},"BLOOM":{"C":{"factory":"WEIYU","factory_price":1.96,"declared_factory_price":null,"customer_price":2.21,"dicatex_price":2.21,"formatex_price":2.21}},"ANNA":{"C":{"factory":"XINSHIXIN","factory_price":2.8,"declared_factory_price":null,"customer_price":2.94,"dicatex_price":2.94,"formatex_price":2.94}},"BLEND":{"C":{"factory":"XINRUN","factory_price":1.81,"declared_factory_price":null,"customer_price":1.94,"dicatex_price":1.94,"formatex_price":1.94}},"DELUXE":{"C":{"factory":"XINRUN","factory_price":1.73,"declared_factory_price":null,"customer_price":1.86,"dicatex_price":1.86,"formatex_price":1.86}},"ALPHA":{"C":{"factory":"BANGDE","factory_price":0.9,"declared_factory_price":null,"customer_price":0.95,"dicatex_price":0.95,"formatex_price":0.95}},"VALENCIA":{"C":{"factory":"BYD","factory_price":1.91,"declared_factory_price":null,"customer_price":2.02,"dicatex_price":2.02,"formatex_price":2.02}},"NEXUS":{"C":{"factory":"KELIDA","factory_price":5.45,"declared_factory_price":null,"customer_price":5.7,"dicatex_price":5.7,"formatex_price":5.7}},"SKIPPER":{"C":{"factory":"ASSETEX","factory_price":4.3,"declared_factory_price":null,"customer_price":4.55,"dicatex_price":4.55,"formatex_price":4.55}},"BONGO":{"C":{"factory":"ASSETEX","factory_price":4.36,"declared_factory_price":null,"customer_price":4.5,"dicatex_price":4.5,"formatex_price":4.5}},"K18-77":{"C":{"factory":"LQ","factory_price":16.71,"declared_factory_price":null,"customer_price":19.65,"dicatex_price":19.65,"formatex_price":19.65}},"K18-118":{"C":{"factory":"LQ","factory_price":10.35,"declared_factory_price":null,"customer_price":11.9,"dicatex_price":11.9,"formatex_price":11.9}},"FUNK":{"C":{"factory":"MINGLONG","factory_price":1.15,"declared_factory_price":null,"customer_price":1.21,"dicatex_price":1.21,"formatex_price":1.21}},"MINDFUL":{"C":{"factory":"BYD","factory_price":1.45,"declared_factory_price":null,"customer_price":1.55,"dicatex_price":1.55,"formatex_price":1.55}},"MODENA":{"C":{"factory":"BYD","factory_price":1.85,"declared_factory_price":null,"customer_price":1.98,"dicatex_price":1.98,"formatex_price":1.98}},"FOREVER PLUS":{"C":{"factory":"HAIHONG","factory_price":2.0,"declared_factory_price":null,"customer_price":2.15,"dicatex_price":2.15,"formatex_price":2.15}},"MOHAIR":{"C":{"factory":"JIMMY","factory_price":2.8,"declared_factory_price":null,"customer_price":3.15,"dicatex_price":3.15,"formatex_price":3.15}},"DYLAN":{"C":{"factory":"BYD","factory_price":1.65,"declared_factory_price":1.39,"customer_price":1.75,"dicatex_price":1.4317,"formatex_price":1.4595}},"WHIMSY":{"C":{"factory":"SYNTEKS","factory_price":0.95,"declared_factory_price":null,"customer_price":1.09,"dicatex_price":1.09,"formatex_price":1.09}},"MISMATCH":{"C":{"factory":"ALNO","factory_price":3.4,"declared_factory_price":null,"customer_price":3.55,"dicatex_price":3.55,"formatex_price":3.55}},"DESTINY":{"C":{"factory":"FEIFAN","factory_price":2.7,"declared_factory_price":null,"customer_price":2.88,"dicatex_price":2.88,"formatex_price":2.88}},"PANORAMIC":{"C":{"factory":"ALNO","factory_price":3.7,"declared_factory_price":null,"customer_price":3.84,"dicatex_price":3.84,"formatex_price":3.84}},"SOUL":{"C":{"factory":"BYD","factory_price":1.53,"declared_factory_price":1.55,"customer_price":1.6,"dicatex_price":1.5965,"formatex_price":1.6275}},"VIXY":{"C":{"factory":"DECORATION","factory_price":1.67,"declared_factory_price":null,"customer_price":1.72,"dicatex_price":1.72,"formatex_price":1.72}},"BALOO":{"C":{"factory":"RUIXIN","factory_price":1.5,"declared_factory_price":null,"customer_price":1.56,"dicatex_price":1.56,"formatex_price":1.56}},"BALOO CREAM WITH NON WOVEN WHITE)":{"C":{"factory":"","factory_price":1.52,"declared_factory_price":null,"customer_price":1.28,"dicatex_price":1.28,"formatex_price":1.28}},"TRIXIE":{"C":{"factory":"RUIXIN","factory_price":1.22,"declared_factory_price":null,"customer_price":1.26,"dicatex_price":1.26,"formatex_price":1.26}},"TRIXIE LINEN, SAND,PLATINUM":{"C":{"factory":"","factory_price":1.23,"declared_factory_price":null,"customer_price":1.29,"dicatex_price":1.29,"formatex_price":1.29}},"FIORA":{"C":{"factory":"DECORATION","factory_price":1.55,"declared_factory_price":null,"customer_price":1.78,"dicatex_price":1.78,"formatex_price":1.78}},"ICON":{"C":{"factory":"WEIYU","factory_price":2.51,"declared_factory_price":null,"customer_price":2.64,"dicatex_price":2.64,"formatex_price":2.64}},"MONUMENT ECRU-K":{"C":{"factory":"ALNO","factory_price":2.95,"declared_factory_price":null,"customer_price":3.2,"dicatex_price":3.2,"formatex_price":3.2}},"VICTORY":{"C":{"factory":"WEIYU","factory_price":1.82,"declared_factory_price":null,"customer_price":2.01,"dicatex_price":2.01,"formatex_price":2.01}},"FRESNO":{"C_factory":{"factory":"DECORATION","factory_price":2.14}},"BIKENDI":{"C_factory":{"factory":"DECORATION","factory_price":1.91}},"VIXY 300M/600M \u4ef7\u683c":{"C_factory":{"factory":"DECORATION","factory_price":1.85}},"VIXY 1000M\u4ef7\u683c":{"C_factory":{"factory":"DECORATION","factory_price":1.8}},"QUINCY":{"C_factory":{"factory":"DECORATION","factory_price":1.82}},"FOGGY":{"C_factory":{"factory":"DECORATION","factory_price":1.47}},"VALENTINA":{"C_factory":{"factory":"AUMERRY","factory_price":2.58}},"CLARITY":{"C_factory":{"factory":"BEYOND","factory_price":1.45}},"DRILL":{"C_factory":{"factory":"BEYOND","factory_price":1.8}},"MAGIC":{"C_factory":{"factory":"BEYOND","factory_price":1.21}},"ENIGMA":{"C_factory":{"factory":"BEYOND","factory_price":1.77}},"KETEN":{"C_factory":{"factory":"BEYOND","factory_price":1.47}},"ENORA":{"C_factory":{"factory":"BEYOND","factory_price":1.75}},"ASTERI":{"C_factory":{"factory":"BEYOND","factory_price":1.8}},"CITY":{"C_factory":{"factory":"BEYOND","factory_price":1.2}},"SPARTA":{"C_factory":{"factory":"BEYOND","factory_price":1.46}},"ALANIS":{"C_factory":{"factory":"BEYOND","factory_price":2.2}},"NOVA":{"C_factory":{"factory":"BEYOND","factory_price":1.42}},"VOGO":{"C_factory":{"factory":"BEYOND","factory_price":1.4}},"VIVACITY":{"C_factory":{"factory":"ELITE","factory_price":1.65}},"CODY":{"C_factory":{"factory":"BEYOND","factory_price":1.3}},"ARTICLE":{"C_factory":{"factory":"BEYOND","factory_price":2.15}},"MONET":{"C_factory":{"factory":"BEYOND","factory_price":1.46}},"AVALANCHE":{"C_factory":{"factory":"MIJU","factory_price":3.09}},"SKYLAR":{"C_factory":{"factory":"MIJU","factory_price":6.51}},"WESLEY":{"C_factory":{"factory":"MIJU","factory_price":6.64}},"SKY":{"C_factory":{"factory":"MIJU","factory_price":5.92}},"NIMBUS":{"C_factory":{"factory":"MIJU","factory_price":2.7}},"HIGHLINE":{"C_factory":{"factory":"MIJU","factory_price":5.46}},"ROCKWELL":{"C_factory":{"factory":"MIJU","factory_price":6.51}},"RHODES":{"C_factory":{"factory":"MIJU","factory_price":4.34}},"FLOFFY":{"C_factory":{"factory":"MIJU","factory_price":1.97}},"EQUINOX":{"C_factory":{"factory":"KELIDA","factory_price":5.78}},"BRUNA":{"C_factory":{"factory":"LONGING","factory_price":1.85}},"DYNAMIC":{"C_factory":{"factory":"ETEX","factory_price":2.65}},"ELEMENT":{"C_factory":{"factory":"LARBENE","factory_price":1.67}},"LUCCA":{"C_factory":{"factory":"LARBENE","factory_price":2.25}},"BLUES":{"C_factory":{"factory":"LARBENE","factory_price":1.77}},"FLY":{"C_factory":{"factory":"LARBENE","factory_price":3.23}},"BACO":{"C_factory":{"factory":"RUIXIN","factory_price":1.4}},"KLEIN":{"C_factory":{"factory":"XINRUN","factory_price":1.44}},"HARMONY":{"C_factory":{"factory":"XINRUN","factory_price":1.49}},"ODYSSEY \u73b0\u5728\u90fd\u5728XINRUN\u505a":{"C_factory":{"factory":"XINRUN","factory_price":2.53}},"DECOROUS":{"C_factory":{"factory":"NEOGOLD","factory_price":5.64}},"SOULMATE":{"C_factory":{"factory":"NEOGOLD","factory_price":6.53}},"PALEO":{"C_factory":{"factory":"NEOGOLD","factory_price":4.67}},"BELUCCI":{"C_factory":{"factory":"LIFANG","factory_price":1.51}},"LULLABY":{"C_factory":{"factory":"MAKA","factory_price":3.65}},"SECRET":{"C_factory":{"factory":"MAKA","factory_price":2.5}},"LOVEME":{"C_factory":{"factory":"MAKA","factory_price":3.3}},"INVERNO DOVE":{"C_factory":{"factory":"NOVATEX","factory_price":5.41}},"FLIP-FLOP":{"C_factory":{"factory":"BANGDE","factory_price":1.55}},"FLIPZONE":{"C_factory":{"factory":"BANGDE","factory_price":1.76}},"ETERNAL":{"C_factory":{"factory":"BANGDE","factory_price":2.17}},"COVER":{"C_factory":{"factory":"BANGDE","factory_price":1.24}},"ITALIAN VELVET":{"C_factory":{"factory":"BANGDE","factory_price":1.36}},"BAKER":{"C_factory":{"factory":"WDF","factory_price":3.05}},"ALBANI \u5de5\u5382\u73b0\u5728\u9ed8\u8ba4\u52a0\u590d\u5408":{"C_factory":{"factory":"JES","factory_price":2.35}},"COZY":{"C_factory":{"factory":"CLIMBING","factory_price":2.35}},"\u4fbf\u5b9c\u7684\u7248\u672c \u8584\u4e00\u70b9\u7684BAKER":{"C_factory":{"factory":"WDF","factory_price":2.35}},"INCANTO":{"C_factory":{"factory":"MIJU","factory_price":2.83}},"KIOTO":{"C_factory":{"factory":"MIJU","factory_price":6.35}},"OLIVETO":{"C_factory":{"factory":"WDF","factory_price":2.5}},"DOLCE":{"C_factory":{"factory":"WDF","factory_price":3.45}},"RIVA":{"C_factory":{"factory":"ASSETEX","factory_price":3.1}},"LIBERTA":{"C_factory":{"factory":"ASSETEX","factory_price":3.48}},"SKIPPER JAVA":{"C_factory":{"factory":"ASSETEX","factory_price":4.2}},"AREZZO CREAM":{"C_factory":{"factory":"ASSETEX","factory_price":2.76}},"SABBIA GREY":{"C_factory":{"factory":"ASSETEX","factory_price":4.23}},"SABBIA PEARL":{"C_factory":{"factory":"ASSETEX","factory_price":4.23}},"OSI":{"C_factory":{"factory":"BANGDE","factory_price":1.39}},"BALOO CREAM":{"C_factory":{"factory":"RUIXIN","factory_price":1.52}},"KIRBY":{"C_factory":{"factory":"CLIMBING","factory_price":1.68}},"GOTCHA":{"C_factory":{"factory":"BEYOND","factory_price":1.5}},"KIMI":{"C_factory":{"factory":"BEYOND","factory_price":1.95}},"RUSTY":{"C_factory":{"factory":"HIGHTEX","factory_price":3.16}},"HADY":{"C_factory":{"factory":"HIGHTEX","factory_price":2.79}},"KATARA":{"C_factory":{"factory":"HIGHTEX","factory_price":4.94}},"MOANA":{"C_factory":{"factory":"ALNO","factory_price":5.5}},"MARK ECRU":{"C_factory":{"factory":"WEIYU","factory_price":1.77}},"MARK THUNDER":{"C_factory":{"factory":"WEIYU","factory_price":1.77}},"BRUCE ASH":{"C_factory":{"factory":"BANGDE","factory_price":1.82}},"BRUCE BEIGE":{"C_factory":{"factory":"BANGDE","factory_price":1.82}},"BANDIT":{"C_factory":{"factory":"ALNO","factory_price":5.3}},"HOUSTON":{"C_factory":{"factory":"LONGING","factory_price":1.95}},"LEGACY":{"C_factory":{"factory":"WEIYU","factory_price":2.8}},"GRACE":{"C_factory":{"factory":"ALNO","factory_price":4.6}}};
 
-function lookupPrice(itemName, customerCode) {
+// Determine brand for Telares based on PO number
+// Dicatex: PO-xxxx (e.g. PO-1345, PO-1346)
+// Formatex: PO-xxx without DIC prefix, or higher numbers (PO-809, PO-810)
+function getTelaresBrand(poNumber) {
+  if (!poNumber) return 'dicatex'; // default
+  const po = String(poNumber).toUpperCase();
+  // Dicatex orders are typically lower PO numbers (PO-1xxx range)
+  // Formatex orders are typically (PO-8xx, PO-9xx range)
+  // Best approach: check the number range
+  const match = po.match(/PO[-\s]*(\d+)/i);
+  if (match) {
+    const num = parseInt(match[1]);
+    // Based on examples: Dicatex = PO-1345, PO-1346; Formatex = PO-809, PO-810
+    if (num >= 800 && num < 900) return 'formatex';
+    if (num >= 1300) return 'dicatex';
+  }
+  return 'dicatex'; // default
+}
+
+function lookupPrice(itemName, customerCode, poNumber) {
   if (!itemName) return null;
   const name = itemName.toUpperCase().trim();
-  if (PRICE_DB[name] && PRICE_DB[name][customerCode]) return PRICE_DB[name][customerCode];
-  for (const [key, val] of Object.entries(PRICE_DB)) {
-    if (name.includes(key.split(' ')[0]) || key.includes(name.split(' ')[0])) {
-      if (val[customerCode]) return val[customerCode];
+  // Try exact match first
+  let entry = null;
+  if (PRICE_DB[name]) entry = PRICE_DB[name];
+  else {
+    // Try partial match
+    for (const [key, val] of Object.entries(PRICE_DB)) {
+      if (name.includes(key.split(' ')[0]) || key.includes(name.split(' ')[0])) {
+        entry = val; break;
+      }
     }
   }
-  return null;
+  if (!entry) return null;
+  const priceInfo = entry[customerCode];
+  if (!priceInfo) return null;
+  
+  // Special handling for Telares (C) - use brand-specific price
+  if (customerCode === 'C' && priceInfo.dicatex_price) {
+    const brand = getTelaresBrand(poNumber);
+    return {
+      ...priceInfo,
+      customer_price: brand === 'formatex' ? priceInfo.formatex_price : priceInfo.dicatex_price,
+      brand: brand,
+      commission_pct: brand === 'formatex' ? 5 : 3,
+    };
+  }
+  return priceInfo;
 }
+
 
 function getCustomerCode(customerId, customers) {
   const c = customers.find(c => c.id === customerId);
@@ -1391,192 +1430,223 @@ async function readAllSheets(file) {
 }
 
 // Find header row index (row with most non-empty cells in first 15 rows)
+// ─── SMART EXTRACTION ENGINE ─────────────────────────────────
 function findHeaderRow(rows) {
-  let best = 0, bestCount = 0;
-  rows.slice(0, 15).forEach((row, i) => {
-    const count = row.filter(c => c !== '' && c !== null && c !== undefined).length;
-    if (count > bestCount) { bestCount = count; best = i; }
+  let best = 0, bestScore = 0;
+  rows.slice(0, 20).forEach((row, i) => {
+    const text = row.map(c => String(c||'').toUpperCase()).join(' ');
+    let score = 0;
+    if (text.match(/\bITEM\b|\bDESCRIPTION\b|\bFABRIC\b/)) score += 3;
+    if (text.match(/\bQTY\b|\bQUANTITY\b|\bMETER\b|\bMTRS?\b/)) score += 3;
+    if (text.match(/\bPRICE\b|\bAMOUNT\b|\bFOB\b/)) score += 2;
+    if (text.match(/\bCOLOU?R\b/)) score += 2;
+    if (text.match(/\bORDER\b|\bROLL\b/)) score += 1;
+    if (text.match(/N\.?W\.?|G\.?W\.?|GROSS|NET/)) score += 1;
+    if (score > bestScore) { bestScore = score; best = i; }
   });
   return best;
 }
 
-// Find column index by keywords
-function findCol(headers, keywords) {
-  for (const kw of keywords) {
-    const idx = headers.findIndex(h => String(h||'').toUpperCase().includes(kw));
-    if (idx >= 0) return idx;
-  }
-  return -1;
-}
-
-// Detect sheet type from headers and content
-function detectSheetType(rows) {
-  if (!rows || rows.length < 2) return null;
+function detectFactoryFormat(rows) {
   const allText = rows.slice(0, 20).flat().map(c => String(c||'').toUpperCase()).join(' ');
-  if (allText.includes('ROLL NO') || allText.includes('ROLL NUMBER') || (allText.includes('ROLL') && allText.includes('LOT'))) return 'dpl';
-  if (allText.includes('CBM') || allText.includes('CARTON') || (allText.includes('PACKAGE') && allText.includes('GROSS'))) return 'pl';
-  if (allText.includes('UNIT PRICE') || allText.includes('FOB') || allText.includes('AMOUNT') || allText.includes('PROFORMA') || allText.includes('INVOICE')) return 'pi';
-  if (allText.includes('PACKING LIST') || allText.includes('GROSS WEIGHT') || allText.includes('NET WEIGHT')) return 'pl';
-  return 'pi'; // default
+  if (allText.includes('UNIT PRICE ($/M)') || allText.includes('UNIT PRICE ($')) return 'feifan';
+  if (allText.includes('DESCRIPTIONS') && allText.includes('ORDER NO.')) return 'haihong';
+  if (allText.includes('ARTNO') || (allText.includes('KAAN') && allText.includes('MTRS') && !allText.includes('QTY(M)'))) return 'daikun';
+  if (allText.includes('UNIT/PRICE')) return 'bangde';
+  return 'generic';
 }
 
-// Extract PI items from rows
-// Patterns that indicate a row is NOT a fabric item
-const SKIP_PATTERNS = /^(total|grand|sub.?total|net weight|gross weight|packed|bank|beneficiary|account|swift|address|note:|remark|payment|shipment|delivery|tel:|fax:|email:|dear|regards|page|invoice no|date:|ref:|from:|to:|attn|please|kindly|enclosed|forwarded|signed|authorized|for and on)/i;
-
-function isValidItem(desc, qty, price) {
-  if (!desc) return false;
-  if (SKIP_PATTERNS.test(desc)) return false;
-  // Must have either a numeric quantity OR a numeric price to be a real item
-  if (qty === 0 && price === 0) return false;
-  // Skip if description looks like a label/header (too long with no numbers)
-  if (desc.length > 80 && !/\d/.test(desc)) return false;
-  return true;
-}
-
-// Find column - expanded keywords for factory price columns
 function extractPI(rows, factoryName) {
   const items = [];
-  const hi = findHeaderRow(rows);
-  const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
-  const dc = findCol(headers, ['DESCRIPTION','ITEM NAME','ITEM','FABRIC','DESIGN','QUALITY','PRODUCT','NAME']);
-  const cc = findCol(headers, ['COLOR','COLOUR','COL.','COL ']);
-  const qc = findCol(headers, ['QUANTITY','QTY','METER','MTR','M ','M)','LENGTH']);
-  // Factory price: try many common column names
-  const pc = findCol(headers, ['UNIT PRICE','FOB PRICE','PRICE USD','UNIT PRIC','FOB USD','FOB SH','PRICE/M','PRICE/MT','UNIT COST','USD/M','PRICE','FOB','UNIT']);
-  const nwc = findCol(headers, ['NET WEIGHT','NET WT','N.W','NW','NET W']);
-  const gwc = findCol(headers, ['GROSS WEIGHT','GROSS WT','G.W','GW','GROSS W']);
-  const oc = findCol(headers, ['ORDER','PO NO','KAAN','REF']);
-  for (let i = hi+1; i < rows.length; i++) {
-    const row = rows[i];
-    const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
-    const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
-    // Also try to find price from any numeric column if dedicated price col not found
-    let price = pc >= 0 ? parseFloat(row[pc]) || 0 : 0;
-    if (price === 0 && pc < 0) {
-      // scan row for small decimal numbers that look like unit prices (0.5 - 50 range)
-      for (const cell of row) {
-        const v = parseFloat(cell);
-        if (!isNaN(v) && v > 0.1 && v < 100 && String(cell).includes('.')) { price = v; break; }
-      }
+  const fmt = detectFactoryFormat(rows);
+  console.log('PI format:', fmt, factoryName);
+
+  if (fmt === 'feifan') {
+    const hi = findHeaderRow(rows);
+    const headers = rows[hi].map(c => String(c||'').toUpperCase());
+    const oc = findCol(headers, ['ORDER']);
+    const dc = findCol(headers, ['ITEM NO','ITEM']);
+    const cc = findCol(headers, ['COLOUR NO','COLOUR','COLOR']);
+    const qc = findCol(headers, ['QUANTITY','QTY']);
+    const pc = findCol(headers, ['UNIT PRICE','PRICE']);
+    for (let i = hi+1; i < rows.length; i++) {
+      const row = rows[i];
+      const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
+      const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
+      const price = pc >= 0 ? parseFloat(row[pc]) || 0 : 0;
+      if (!isValidItem(desc, qty, price)) continue;
+      items.push({ description: desc, color: cc >= 0 ? String(row[cc]||'').trim() : '', quantity: qty, factory_price: price, net_weight: 0, gross_weight: 0, order_number: oc >= 0 ? String(row[oc]||'').trim() : '', factory_name: factoryName });
     }
-    if (!isValidItem(desc, qty, price)) continue;
-    items.push({
-      description: desc,
-      color: cc >= 0 ? String(row[cc]||'').trim() : '',
-      quantity: qty,
-      factory_price: price,
-      net_weight: nwc >= 0 ? parseFloat(row[nwc]) || 0 : 0,
-      gross_weight: gwc >= 0 ? parseFloat(row[gwc]) || 0 : 0,
-      order_number: oc >= 0 ? String(row[oc]||'').trim() : '',
-      factory_name: factoryName,
-    });
+
+  } else if (fmt === 'haihong') {
+    let dataStart = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]||'').toUpperCase().includes('ORDER NO')) { dataStart = i + 1; break; }
+    }
+    if (dataStart < 0) dataStart = findHeaderRow(rows) + 1;
+    for (let i = dataStart; i < rows.length; i++) {
+      const row = rows[i];
+      const orderNo = String(row[0]||'').trim();
+      const itemRaw = String(row[1]||'').trim();
+      if (!orderNo || !itemRaw || orderNo.toUpperCase().includes('TOTAL') || !orderNo.match(/KAAN/i)) continue;
+      const qty = parseFloat(row[4]) || 0;
+      const price = parseFloat(row[6]) || 0;
+      if (!qty && !price) continue;
+      const parts = itemRaw.split(' ');
+      const color = parts.length > 1 ? parts[parts.length-1] : '';
+      const desc = parts.length > 1 ? parts.slice(0,-1).join(' ') : itemRaw;
+      items.push({ description: desc, color: color, quantity: qty, factory_price: price, net_weight: 0, gross_weight: 0, order_number: orderNo, factory_name: factoryName });
+    }
+
+  } else if (fmt === 'daikun') {
+    let headerRow = -1;
+    for (let i = 0; i < rows.length; i++) {
+      const text = rows[i].map(c => String(c||'').toUpperCase()).join(' ');
+      if (text.includes('DESCRIPTION') && text.includes('QUANTITY') && text.includes('UNIT PRICE')) { headerRow = i; break; }
+    }
+    if (headerRow < 0) headerRow = findHeaderRow(rows);
+    for (let i = headerRow+2; i < rows.length; i++) {
+      const row = rows[i];
+      const col0 = String(row[0]||'').trim();
+      if (!col0 || !col0.match(/KAAN/i)) continue;
+      if (col0.match(/^\d+%/) || col0.match(/^FROM\s+/i) || col0.match(/^TOTAL/i) || col0.match(/^PACKAGE/i) || col0.match(/^THE\s/i) || col0.match(/^BENEFIC/i)) continue;
+      const qty = parseFloat(row[4]) || 0;
+      const price = parseFloat(row[6]) || 0;
+      if (!qty && !price) continue;
+      const match = col0.match(/^(KAAN\s+[\w-]+)\s+(.+?)\s+(\S+)$/i);
+      let desc = col0, color = '', orderNo = '';
+      if (match) { orderNo = match[1]; desc = match[2]; color = match[3]; }
+      items.push({ description: desc, color: color, quantity: qty, factory_price: price, net_weight: 0, gross_weight: 0, order_number: orderNo, factory_name: factoryName });
+    }
+
+  } else {
+    // Generic + Bangde
+    const hi = findHeaderRow(rows);
+    const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
+    const dc = findCol(headers, ['ITEM','DESCRIPTION','FABRIC','DESIGN','QUALITY','PRODUCT','NAME']);
+    const cc = findCol(headers, ['COLOR','COLOUR','COL']);
+    const qc = findCol(headers, ['QTY(M)','QUANTITY    (M)','QUANTITY','QTY','METER','MTR','MTS','LENGTH']);
+    const pc = findCol(headers, ['UNIT/PRICE','UNIT PRICE','FOB PRICE','PRICE USD','FOB USD','PRICE/M','UNIT COST','PRICE']);
+    const nwc = findCol(headers, ['N.W.(KGS)','N.W.','NET WEIGHT','NET WT']);
+    const gwc = findCol(headers, ['G.W.(KGS','G.W.','GROSS WEIGHT','GROSS WT']);
+    const oc = findCol(headers, ['ORDER NO','ORDER No','PO NO','KAAN','ORDER']);
+    for (let i = hi+1; i < rows.length; i++) {
+      const row = rows[i];
+      const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
+      const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
+      const price = pc >= 0 ? parseFloat(row[pc]) || 0 : 0;
+      if (!isValidItem(desc, qty, price)) continue;
+      items.push({ description: desc, color: cc >= 0 ? String(row[cc]||'').trim() : '', quantity: qty, factory_price: price, net_weight: nwc >= 0 ? parseFloat(row[nwc])||0 : 0, gross_weight: gwc >= 0 ? parseFloat(row[gwc])||0 : 0, order_number: oc >= 0 ? String(row[oc]||'').trim() : '', factory_name: factoryName });
+    }
   }
   return items;
 }
 
 function extractPL(rows) {
   const items = [];
-  const hi = findHeaderRow(rows);
-  const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
-  const dc = findCol(headers, ['DESCRIPTION','ITEM','FABRIC','DESIGN','NAME','QUALITY']);
-  const cc = findCol(headers, ['COLOR','COLOUR','COL.','COL ']);
-  const qc = findCol(headers, ['QUANTITY','QTY','METER','MTR']);
-  const pkc = findCol(headers, ['PACKAGE','PKG','CARTON','CTN','ROLL','BALE']);
-  const nwc = findCol(headers, ['NET WEIGHT','NET WT','N.W','NW']);
-  const gwc = findCol(headers, ['GROSS WEIGHT','GROSS WT','G.W','GW']);
-  const cbmc = findCol(headers, ['CBM','VOLUME','M3','M³']);
-  const oc = findCol(headers, ['ORDER','PO','KAAN','REF']);
-  for (let i = hi+1; i < rows.length; i++) {
-    const row = rows[i];
-    const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
-    const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
-    const pkg = pkc >= 0 ? parseFloat(row[pkc]) || 0 : 0;
-    if (!isValidItem(desc, qty, pkg)) continue;
-    items.push({
-      description: desc,
-      color: cc >= 0 ? String(row[cc]||'').trim() : '',
-      quantity: qty,
-      packages: pkg,
-      net_weight: nwc >= 0 ? parseFloat(row[nwc]) || 0 : 0,
-      gross_weight: gwc >= 0 ? parseFloat(row[gwc]) || 0 : 0,
-      cbm: cbmc >= 0 ? parseFloat(row[cbmc]) || 0 : 0,
-      order_number: oc >= 0 ? String(row[oc]||'').trim() : '',
-    });
+  const fmt = detectFactoryFormat(rows);
+
+  if (fmt === 'haihong') {
+    let dataStart = -1;
+    for (let i = 0; i < rows.length; i++) {
+      const text = rows[i].map(c => String(c||'').toUpperCase()).join(' ');
+      if (text.includes('QUANTITY') && text.includes('PACKAGES') && text.includes('N/W')) { dataStart = i+1; break; }
+    }
+    if (dataStart < 0) return items;
+    for (let i = dataStart; i < rows.length; i++) {
+      const row = rows[i];
+      const desc = String(row[0]||'').trim();
+      if (!desc || desc.toUpperCase().includes('TOTAL') || SKIP_PATTERNS.test(desc)) continue;
+      const qty = parseFloat(row[2]) || 0;
+      if (!qty) continue;
+      items.push({ description: desc, color: '', quantity: qty, packages: parseFloat(row[4])||0, net_weight: parseFloat(row[6])||0, gross_weight: parseFloat(row[8])||0, cbm: parseFloat(row[10])||0, order_number: '' });
+    }
+  } else if (fmt === 'daikun') {
+    let dataStart = -1;
+    for (let i = 0; i < rows.length; i++) {
+      const text = rows[i].map(c => String(c||'').toUpperCase()).join(' ');
+      if (text.includes('PACK') && text.includes('QUANTITY') && text.includes('GROSS')) { dataStart = i+1; break; }
+    }
+    if (dataStart < 0) return items;
+    for (let i = dataStart; i < rows.length; i++) {
+      const row = rows[i];
+      const col0 = String(row[0]||'').trim();
+      if (!col0 || !col0.match(/KAAN/i)) continue;
+      const qty = parseFloat(row[4]) || 0;
+      const match = col0.match(/^(KAAN\s+[\w-]+)\s+(.+?)\s+(\S+)$/i);
+      let desc = col0, color = '';
+      if (match) { desc = match[2]; color = match[3]; }
+      items.push({ description: desc, color: color, quantity: qty, packages: parseFloat(row[2])||0, net_weight: parseFloat(row[7])||0, gross_weight: parseFloat(row[6])||0, cbm: parseFloat(row[8])||0, order_number: '' });
+    }
+  } else {
+    const hi = findHeaderRow(rows);
+    const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
+    const dc = findCol(headers, ['ITEM NO','ITEM','DESCRIPTION','FABRIC','DESIGN','NAME','QUALITY']);
+    const cc = findCol(headers, ['COLOUR NO','COLOUR','COLOR','COL']);
+    const qc = findCol(headers, ['QUANTITY (M)','QUANTITY    (M)','QTY(M)','QUANTITY','QTY','METER','MTR','MTS']);
+    const pkc = findCol(headers, ['ROLLS','PACKAGE','PKG','CARTON','CTN','BALE']);
+    const nwc = findCol(headers, ['NT WT','N.W.(KGS)','N.W.','NET WEIGHT','NET WT','NT WTN']);
+    const gwc = findCol(headers, ['GROSS WEIGHT','G.W.(KGS','G.W.','GROSS WT','GW']);
+    const cbmc = findCol(headers, ['MEAS.','CBM','VOLUME','M3']);
+    const oc = findCol(headers, ['ORDER NO','ORDER No','PO NO','KAAN','ORDER']);
+    for (let i = hi+1; i < rows.length; i++) {
+      const row = rows[i];
+      const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
+      const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
+      const pkg = pkc >= 0 ? parseFloat(row[pkc])||0 : 0;
+      if (!desc || SKIP_PATTERNS.test(desc) || (!qty && !pkg)) continue;
+      items.push({ description: desc, color: cc >= 0 ? String(row[cc]||'').trim() : '', quantity: qty, packages: pkg, net_weight: nwc >= 0 ? parseFloat(row[nwc])||0 : 0, gross_weight: gwc >= 0 ? parseFloat(row[gwc])||0 : 0, cbm: cbmc >= 0 ? parseFloat(row[cbmc])||0 : 0, order_number: oc >= 0 ? String(row[oc]||'').trim() : '' });
+    }
   }
   return items;
 }
 
 function extractDPL(rows, factoryName) {
   const items = [];
+  const row0 = rows[0] ? rows[0].map(c => String(c||'').toUpperCase()) : [];
+  const row2 = rows[2] ? rows[2].map(c => String(c||'').toUpperCase()) : [];
+  const isDaikunDPL = row0.some(c => c.includes('KAAN')) && row2.some(c => c.match(/\bNO\b|\bLOT\b|\bMTR/));
+
+  if (isDaikunDPL) {
+    for (let col = 0; col < rows[0].length; col += 4) {
+      const itemName = String(rows[0][col]||'').trim();
+      if (!itemName || !itemName.match(/KAAN/i)) continue;
+      const color = String(rows[1] && rows[1][col]||'').trim();
+      const match = itemName.match(/^(KAAN\s+[\w-]+)\s+(.+)$/i);
+      const order = match ? match[1] : '';
+      const desc = match ? match[2] : itemName;
+      for (let row = 3; row < rows.length; row++) {
+        const rollNo = String(rows[row][col]||'').replace('#','').trim();
+        const qty = parseFloat(rows[row][col+2]) || 0;
+        if (!rollNo || !qty) continue;
+        items.push({ description: desc, color: color, roll_number: rollNo, quantity_mts: qty, lot: String(rows[row][col+1]||'').trim(), order_number: order, factory_name: factoryName });
+      }
+    }
+    return items;
+  }
+
   const hi = findHeaderRow(rows);
   const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
-  const dc = findCol(headers, ['DESCRIPTION','ITEM','FABRIC','DESIGN','NAME','QUALITY']);
-  const rc = findCol(headers, ['ROLL NO','ROLL NUMBER','ROLL#','ROLL','NO.']);
-  const qc = findCol(headers, ['QUANTITY','QTY','METER','MTR','LENGTH','MTS']);
-  const lc = findCol(headers, ['LOT','BATCH','DYE LOT','LOT NO']);
-  const oc = findCol(headers, ['ORDER','PO','KAAN','REF']);
+  const oc = findCol(headers, ['CUSTOMER ORDER','ORDER NUMBER','ORDER NO','ORDER No','PO NO','KAAN','ORDER']);
+  const dc = findCol(headers, ['ITEM','DESCRIPTION','FABRIC','DESIGN','NAME']);
+  const cc = findCol(headers, ['COLOUR','COLOR','COL','\u989c\u8272\u53f7','\u989c\u8272']);
+  const rc = findCol(headers, ['ROLL NUMBER','ROLL NO','ROLL#','ROLL','\u5377\u53f7']);
+  const lc = findCol(headers, ['LOT NO','LOT','BATCH','DYE LOT','\u7f38\u53f7']);
+  const qc = findCol(headers, ['N.METER','NET METER','QUANTITY(M)NET','\u51c0\u7c73','QTY(M)','QUANTITY','QTY','METER','MTR','LENGTH','MTS']);
+
   for (let i = hi+1; i < rows.length; i++) {
     const row = rows[i];
     const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
     const rollNo = rc >= 0 ? String(row[rc]||'').trim() : '';
+    const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
     if (!qty && !rollNo) continue;
-    if (SKIP_PATTERNS.test(rollNo) || /^total/i.test(rollNo)) continue;
-    items.push({
-      description: dc >= 0 ? String(row[dc]||'').trim() : '',
-      roll_number: rollNo,
-      quantity_mts: qty,
-      lot: lc >= 0 ? String(row[lc]||'').trim() : '',
-      order_number: oc >= 0 ? String(row[oc]||'').trim() : '',
-      factory_name: factoryName,
-    });
+    if (SKIP_PATTERNS.test(String(desc||rollNo||''))) continue;
+    items.push({ description: desc, color: cc >= 0 ? String(row[cc]||'').trim() : '', roll_number: rollNo || String(i-hi), quantity_mts: qty, lot: lc >= 0 ? String(row[lc]||'').trim() : '', order_number: oc >= 0 ? String(row[oc]||'').trim() : '', factory_name: factoryName });
   }
   return items;
 }
 
-// Parse one file — reads ALL sheets and extracts PI, PL, DPL data
-async function parseFile(file, hint, factoryName) {
-  // hint = 'pi' | 'pl' | 'dpl' | 'auto'
-  if (!file) return { pi_items: [], pl_items: [], dpl_items: [] };
-  try {
-    const sheets = await readAllSheets(file);
-    let pi_items = [], pl_items = [], dpl_items = [];
 
-    if (Object.keys(sheets).length === 1) {
-      // Single sheet — use hint or auto-detect
-      const rows = Object.values(sheets)[0];
-      const type = hint === 'auto' ? detectSheetType(rows) : hint;
-      if (type === 'pi' || type === 'auto') pi_items = extractPI(rows, factoryName);
-      if (type === 'pl') pl_items = extractPL(rows);
-      if (type === 'dpl') dpl_items = extractDPL(rows, factoryName);
-      // If auto PI but no results, try as PL
-      if (!pi_items.length && !pl_items.length) pl_items = extractPL(rows);
-    } else {
-      // Multiple sheets — classify each one
-      Object.entries(sheets).forEach(([name, rows]) => {
-        const type = detectSheetType(rows);
-        if (type === 'dpl' && !dpl_items.length) dpl_items = extractDPL(rows, factoryName);
-        else if (type === 'pl' && !pl_items.length) pl_items = extractPL(rows);
-        else if (type === 'pi' && !pi_items.length) pi_items = extractPI(rows, factoryName);
-      });
-      // Fallback: if still no PI, try all sheets
-      if (!pi_items.length) {
-        Object.values(sheets).forEach(rows => {
-          if (!pi_items.length) {
-            const items = extractPI(rows, factoryName);
-            if (items.length) pi_items = items;
-          }
-        });
-      }
-    }
-    return { pi_items, pl_items, dpl_items };
-  } catch(err) {
-    console.error('File parse error:', err);
-    return { pi_items: [], pl_items: [], dpl_items: [], error: err.message };
-  }
-}
-
-// ─── FACTORY SEARCH COMPONENT ────────────────────────────────
 function FactorySearch({ value, onChange, factoryList, style }) {
   const [query, setQuery] = useState(value || '');
   const [open, setOpen] = useState(false);
@@ -1712,6 +1782,7 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
           const gotPl = (r.pl_items || []).length;
           const gotDpl = (r.dpl_items || []).length;
           appendLog('    PI:' + gotPi + ' PL:' + gotPl + ' DPL:' + gotDpl);
+          if (gotPi === 0 && gotPl === 0) appendLog('    ⚠️ No items found — check console (F12) for header details');
           if (gotPi > piItems.length) piItems = r.pi_items;
           if (gotPl > plItems.length) plItems = r.pl_items;
           if (gotDpl > dplExtracted.length) dplExtracted = r.dpl_items;
@@ -2483,6 +2554,414 @@ function NewNoteModal({ tab, customers, factories, entity, onClose, onSaved }) {
 
 const PAGE_TITLES = { dashboard: 'Dashboard', alerts: 'Delivery Alerts', 'customer-orders': 'Customer Orders', 'factory-orders': 'Factory POs', proforma: 'Proforma Invoices', invoices: 'Commercial Invoices', shipments: 'Shipments', osr: 'Order Status Reports', payments: 'Payments', deposits: 'Deposits', notes: 'Credit / Debit Notes', commission: 'Arte Linea Commission', pl: 'P&L Statement', ledger: 'Debtors & Creditors', archive: 'Document Archive', customers: 'Customers', factories: 'Factories', products: 'Products & Prices', settings: 'Settings' };
 
+// ─── ARTE LINEA COMMISSION ───────────────────────────────────
+function Commission() {
+  const { entity } = useApp();
+  const [tab, setTab] = useState('new');
+  const [shipmentRef, setShipmentRef] = useState('');
+  const [shipmentDate, setShipmentDate] = useState(today());
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [via, setVia] = useState('SEA');
+  const [items, setItems] = useState([]);
+  const [savedCommissions, setSavedCommissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [generatedDoc, setGeneratedDoc] = useState(null);
+
+  useEffect(() => { loadSaved(); }, [entity]);
+
+  async function loadSaved() {
+    setLoading(true);
+    const { data } = await db(entity).from('commission_invoices')
+      .select('*').eq('entity', entity).order('invoice_date', { ascending: false }).limit(50);
+    setSavedCommissions(data || []);
+    setLoading(false);
+  }
+
+  function addItem() {
+    setItems(p => [...p, {
+      order_no: '', supplier: '', item_name: '', sea_air: via,
+      unit_price: '', qty: '', total_amount: 0, commission_pct: 5, commission_amount: 0
+    }]);
+  }
+
+  function upItem(i, field, val) {
+    setItems(p => p.map((item, idx) => {
+      if (idx !== i) return item;
+      const updated = { ...item, [field]: val };
+      // Recalculate totals
+      const qty = +updated.qty || 0;
+      const price = +updated.unit_price || 0;
+      const pct = +updated.commission_pct || 0;
+      updated.total_amount = qty * price;
+      updated.commission_amount = parseFloat((qty * price * pct / 100).toFixed(4));
+      return updated;
+    }));
+  }
+
+  async function parseCommissionFile(file) {
+    // Read uploaded commission Excel file and auto-populate items
+    const sheets = await readAllSheets(file);
+    const newItems = [];
+    for (const [sheetName, rows] of Object.entries(sheets)) {
+      const hi = findHeaderRow(rows);
+      const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
+      const orderCol = findCol(headers, ['ORDER','PO']);
+      const supplierCol = findCol(headers, ['SUPPLIER','FACTORY']);
+      const itemCol = findCol(headers, ['ITEM','DESCRIPTION','DESIGN']);
+      const dateCol = findCol(headers, ['SHIPMENT DATE','DATE']);
+      const seaairCol = findCol(headers, ['SEA','AIR','SEA / AIR']);
+      const priceCol = findCol(headers, ['UNIT PRICE','PRICE']);
+      const qtyCol = findCol(headers, ['ACTUAL QTY','ACUAL QTY','QTY','QUANTITY']);
+      const totalCol = findCol(headers, ['TOTAL AMOUNT','TOTAL']);
+      const commPctCol = findCol(headers, ['COMMISSION %','COMM%','COMMISSION%']);
+      const commAmtCol = findCol(headers, ['COMMISSION AMOUNT','COMM AMOUNT']);
+
+      if (itemCol < 0 && priceCol < 0) continue;
+
+      for (let i = hi+1; i < rows.length; i++) {
+        const row = rows[i];
+        const item = itemCol >= 0 ? String(row[itemCol]||'').trim() : '';
+        const price = priceCol >= 0 ? parseFloat(row[priceCol]) || 0 : 0;
+        const qty = qtyCol >= 0 ? parseFloat(row[qtyCol]) || 0 : 0;
+        if (!item && !price && !qty) continue;
+        if (SKIP_PATTERNS.test(item)) continue;
+        const commPct = commPctCol >= 0 ? parseFloat(row[commPctCol]) || 5 : 5;
+        const total = totalCol >= 0 ? parseFloat(row[totalCol]) || (qty * price) : qty * price;
+        const commAmt = commAmtCol >= 0 ? parseFloat(row[commAmtCol]) || 0 : parseFloat((total * commPct / 100).toFixed(4));
+        newItems.push({
+          order_no: orderCol >= 0 ? String(row[orderCol]||'').trim() : '',
+          supplier: supplierCol >= 0 ? String(row[supplierCol]||'').trim() : '',
+          item_name: item,
+          sea_air: seaairCol >= 0 ? String(row[seaairCol]||'').trim() : via,
+          unit_price: price,
+          qty: qty,
+          total_amount: parseFloat(total.toFixed(4)),
+          commission_pct: commPct,
+          commission_amount: commAmt,
+        });
+      }
+    }
+    return newItems;
+  }
+
+  const totalCommission = items.reduce((s, i) => s + (i.commission_amount || 0), 0);
+  const totalQty = items.reduce((s, i) => s + (+i.qty || 0), 0);
+  const totalAmt = items.reduce((s, i) => s + (i.total_amount || 0), 0);
+
+  async function saveAndGenerate() {
+    if (!shipmentRef || !invoiceNumber || items.length === 0) {
+      alert('Shipment ref, invoice number and at least one item required');
+      return;
+    }
+    setSaving(true);
+    const d = db(entity);
+    const co = CONFIGS[entity];
+
+    // Save commission invoice
+    const { data: ci } = await d.from('commission_invoices').insert({
+      invoice_number: invoiceNumber,
+      shipment_ref: shipmentRef,
+      entity,
+      invoice_date: shipmentDate,
+      via,
+      total_commission: totalCommission,
+      status: 'issued',
+      paid: false,
+    }).select().single();
+
+    if (ci) {
+      // Save line items
+      const lineItems = items.map((item, idx) => ({
+        commission_invoice_id: ci.id,
+        line_no: idx + 1,
+        order_no: item.order_no,
+        supplier: item.supplier,
+        item_name: item.item_name,
+        sea_air: item.sea_air,
+        unit_price: +item.unit_price || 0,
+        actual_qty: +item.qty || 0,
+        total_amount: item.total_amount,
+        commission_pct: +item.commission_pct || 5,
+        commission_amount: item.commission_amount,
+      }));
+      await d.from('commission_invoice_items').insert(lineItems);
+    }
+
+    // Generate the two documents:
+    // 1. Commission Statement (detailed) - internal reference
+    // 2. KAANAL Invoice (simple) - sent to Arte Linea
+
+    const sep = '─'.repeat(100);
+    const dateStr = new Date(shipmentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    // Commission Statement (detailed breakdown)
+    const stmtLines = [
+      co.name, co.address, '',
+      'COMMISSION STATEMENT', '',
+      `Ref: ${shipmentRef}`, `Date: ${dateStr}`, `Via: ${via}`, '',
+      'TO: Arte Linea SA DE CV',
+      'Prolongacion Recursos Hidraulicos 1-D, Parque Industrial La Loma',
+      'Tlalnepantla de Baz, Estado de Mexico, C.P. 54060',
+      'Tax ID: ALI071022HA2', '',
+      sep,
+      'ORDER     SUPPLIER                  ITEM                            SEA/AIR  UNIT PRICE  QTY        TOTAL AMT    COMM%  COMMISSION',
+      sep,
+      ...items.map(item => {
+        const o = String(item.order_no||'').padEnd(10);
+        const s = String(item.supplier||'').substring(0,26).padEnd(27);
+        const it = String(item.item_name||'').substring(0,32).padEnd(33);
+        const sa = String(item.sea_air||'SEA').padEnd(9);
+        const up = String(fmtNum(+item.unit_price||0,4)).padEnd(12);
+        const q = String(fmtNum(+item.qty||0,1)).padEnd(11);
+        const ta = String(fmtNum(item.total_amount||0,3)).padEnd(13);
+        const cp = String(item.commission_pct||5)+'%  ';
+        const ca = fmtNum(item.commission_amount||0,4);
+        return o+s+it+sa+up+q+ta+cp+ca;
+      }),
+      sep,
+      `TOTAL: ${fmtNum(totalQty,1)} mts | Invoice Value: ${fmtUSD(totalAmt)} | Total Commission: ${fmtUSD(totalCommission)}`,
+      '', 'BANKING DETAILS:',
+      `Company: ${co.name}`, `Account No: ${co.bankAccount}`,
+      `Clearing Code: ${co.clearingCode}`, `Bank: ${co.bankName}`, `Swift: ${co.swift}`,
+      '', 'For and on behalf of', co.name,
+    ].join('\n');
+
+    // KAANAL Invoice (simple - just one line)
+    const kaaналLines = [
+      co.name, co.address, co.taxId ? `TAX ID: ${co.taxId}` : '', '',
+      '   COMMERCIAL INVOICE   ', '',
+      'TO:                                    INVOICE NO:  ' + invoiceNumber,
+      'Arte Linea SA DE CV                    Invoice Date: ' + dateStr,
+      'Prolongacion Recursos Hidraulicos 1-D',
+      'Parque Industrial La Loma',
+      'Tlalnepantla de Baz, Estado de Mexico',
+      'Codigo Postal 54060',
+      'Tax ID: ALI071022HA2',
+      'Tel: 55616992', '',
+      '─'.repeat(60),
+      'Description                              Amount (USD)',
+      '─'.repeat(60),
+      `Commission ${shipmentRef}${' '.repeat(Math.max(1, 41 - ('Commission '+shipmentRef).length))}${fmtUSD(totalCommission)}`,
+      '─'.repeat(60),
+      `TOTAL AMOUNT${' '.repeat(29)}${fmtUSD(totalCommission)}`,
+      '', '', '', '',
+      "Beneficiary's Name:  Kaan Group Ltd.        KAAN GROUP LIMITED",
+      `${co.address}`,
+      '                                         Bank Information',
+      `                                         Account Number: ${co.bankAccount}`,
+      `                                         Clearing Code: ${co.clearingCode}`,
+      `                                         Bank: ${co.bankName}`,
+      `                                         Swift: ${co.swift}`,
+    ].filter(l => l !== null).join('\n');
+
+    // Save to archive
+    if (ci) {
+      await d.from('document_archive').insert([
+        { doc_number: invoiceNumber, doc_type: 'commission_statement', entity, doc_date: shipmentDate, financial_year: new Date(shipmentDate).getFullYear(), counterparty_type: 'customer', counterparty_name: 'Arte Linea SA DE CV', amount: totalCommission, currency: 'USD', source_table: 'commission_invoices', source_id: ci.id, file_name: `${shipmentRef}_CommissionStatement.txt` },
+        { doc_number: invoiceNumber, doc_type: 'commission_invoice', entity, doc_date: shipmentDate, financial_year: new Date(shipmentDate).getFullYear(), counterparty_type: 'customer', counterparty_name: 'Arte Linea SA DE CV', amount: totalCommission, currency: 'USD', source_table: 'commission_invoices', source_id: ci.id, file_name: `${invoiceNumber}.txt` },
+      ]);
+    }
+
+    setGeneratedDoc({ stmt: stmtLines, invoice: kaaналLines, ref: shipmentRef, invoiceNo: invoiceNumber, total: totalCommission });
+    loadSaved();
+    setSaving(false);
+  }
+
+  function download(content, filename) {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Commission % info by factory based on historical data
+  const COMM_PCT_HINTS = {
+    'BEYOND': 4, 'XINRUN': 5, 'FEIFAN': 5, 'DECORATION': 5,
+    'TONGHUI': 5, 'TONGHAO': 5, 'LEJI': 5, 'BUWEI': 5,
+    'BANGDE': 4, 'HAIHONG': 4, 'RUN&FUN': 5, 'JES': 5,
+    'ETEX': 5, 'HUAQIANG': 5, 'KAAN-BANGDE': 4, 'KAAN PTE': 5,
+  };
+
+  return (
+    <div>
+      <div className="tabs">
+        <button className={`tab ${tab === 'new' ? 'active' : ''}`} onClick={() => setTab('new')}>➕ New Commission Invoice</button>
+        <button className={`tab ${tab === 'history' ? 'active' : ''}`} onClick={() => setTab('history')}>📋 History ({savedCommissions.length})</button>
+      </div>
+
+      {tab === 'history' ? (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Invoice No.</th><th>Shipment Ref</th><th>Date</th><th>Via</th><th>Total Commission</th><th>Status</th><th>Paid</th></tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={7}><div className="empty">Loading...</div></td></tr>
+                : savedCommissions.length === 0 ? <tr><td colSpan={7}><div className="empty">No commission invoices yet</div></td></tr>
+                : savedCommissions.map(ci => (
+                  <tr key={ci.id}>
+                    <td className="td-p td-mono">{ci.invoice_number}</td>
+                    <td className="td-mono" style={{ color: 'var(--accent-light)' }}>{ci.shipment_ref}</td>
+                    <td>{fmtDate(ci.invoice_date)}</td>
+                    <td><span className="badge bb">{ci.via}</span></td>
+                    <td className="td-amt" style={{ color: 'var(--green)', fontWeight: 700 }}>{fmtUSD(ci.total_commission)}</td>
+                    <td><span className={`badge ${ci.status === 'paid' ? 'bg' : 'by'}`}>{ci.status}</span></td>
+                    <td>{ci.paid ? <span className="badge bg">✓ Paid</span> : <button className="btn btn-ghost btn-sm" style={{ color: 'var(--green)', fontSize: 11 }} onClick={async () => { await db(entity).from('commission_invoices').update({ paid: true }).eq('id', ci.id); loadSaved(); }}>Mark Paid</button>}</td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+      ) : generatedDoc ? (
+        // Step 4: Documents ready
+        <div>
+          <div style={{ textAlign: 'center', padding: '20px 0 16px' }}>
+            <div style={{ fontSize: 44, marginBottom: 12 }}>✅</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>Commission Documents Generated!</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{generatedDoc.ref} — Total Commission: <strong style={{ color: 'var(--green)' }}>{fmtUSD(generatedDoc.total)}</strong></div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24, maxWidth: 600, margin: '0 auto 24px' }}>
+            {[
+              { label: `📊 Commission Statement — ${generatedDoc.ref}`, content: generatedDoc.stmt, filename: `${generatedDoc.ref}_CommissionStatement.txt`, desc: 'Detailed breakdown by item — internal reference' },
+              { label: `📄 KAANAL Invoice — ${generatedDoc.invoiceNo}`, content: generatedDoc.invoice, filename: `${generatedDoc.invoiceNo}.txt`, desc: 'Simple invoice sent to Arte Linea' },
+            ].map((doc, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--navy)', border: '1px solid var(--navy-border)', borderRadius: 12 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{doc.label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{doc.desc}</div>
+                </div>
+                <button className="btn btn-secondary btn-sm" onClick={() => download(doc.content, doc.filename)}>⬇ Download</button>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <button className="btn btn-primary" onClick={() => { download(generatedDoc.stmt, `${generatedDoc.ref}_CommissionStatement.txt`); download(generatedDoc.invoice, `${generatedDoc.invoiceNo}.txt`); }}>⬇ Download Both</button>
+            <button className="btn btn-secondary" onClick={() => { setGeneratedDoc(null); setItems([]); setShipmentRef(''); setInvoiceNumber(''); }}>+ New Commission Invoice</button>
+          </div>
+        </div>
+      ) : (
+        // New commission invoice form
+        <div>
+          {/* Header info */}
+          <div className="card">
+            <div className="grid2">
+              <div className="form-group">
+                <label className="form-label">Shipment Reference *</label>
+                <input className="form-input" value={shipmentRef} onChange={e => setShipmentRef(e.target.value)} placeholder="e.g. AT-2346" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Invoice Number *</label>
+                <input className="form-input" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="e.g. KAANAL20260507" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Shipment Date</label>
+                <input type="date" className="form-input" value={shipmentDate} onChange={e => setShipmentDate(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Via</label>
+                <select className="form-input" value={via} onChange={e => setVia(e.target.value)}>
+                  <option>SEA</option><option>AIR</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Upload commission file */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 4 }}>
+              <label className="form-label">Upload Commission Excel File (optional — auto-fills items below)</label>
+              <input type="file" accept=".xlsx,.xls" onChange={async e => {
+                if (!e.target.files[0]) return;
+                const parsed = await parseCommissionFile(e.target.files[0]);
+                if (parsed.length > 0) { setItems(parsed); }
+                else alert('Could not read items from file. Please add manually.');
+              }} style={{ width: '100%', background: 'var(--navy)', border: '1px dashed var(--navy-border)', borderRadius: 8, padding: '8px 11px', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }} />
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Upload your COMMISSION AT-XXXX.xlsx file and items will be extracted automatically</div>
+            </div>
+          </div>
+
+          {/* Items table */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div className="sh-title">Commission Items ({items.length} items)</div>
+            <button className="btn btn-secondary btn-sm" onClick={addItem}>+ Add Row</button>
+          </div>
+
+          {items.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 24, marginBottom: 10 }}>📂</div>
+              Upload a commission Excel file above, or click "+ Add Row" to enter items manually
+            </div>
+          ) : (
+            <div className="table-wrap" style={{ marginBottom: 14 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Order No.</th>
+                    <th>Supplier / Factory</th>
+                    <th>Item Name</th>
+                    <th>Sea/Air</th>
+                    <th>Unit Price</th>
+                    <th>Qty (mts)</th>
+                    <th>Total Amount</th>
+                    <th style={{ color: 'var(--gold)' }}>Comm %</th>
+                    <th style={{ color: 'var(--green)' }}>Commission</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, i) => (
+                    <tr key={i}>
+                      <td><input className="form-input" style={{ fontSize: 11, padding: '3px 6px', width: 85 }} value={item.order_no} onChange={e => upItem(i,'order_no',e.target.value)} placeholder="PO-xxxx" /></td>
+                      <td><input className="form-input" style={{ fontSize: 11, padding: '3px 6px', width: 110 }} value={item.supplier} onChange={e => {
+                        upItem(i,'supplier',e.target.value);
+                        // Auto-suggest commission %
+                        const hint = COMM_PCT_HINTS[e.target.value.toUpperCase().split(' ')[0]];
+                        if (hint) upItem(i,'commission_pct',hint);
+                      }} placeholder="Factory name" /></td>
+                      <td><input className="form-input" style={{ fontSize: 11, padding: '3px 6px', minWidth: 160 }} value={item.item_name} onChange={e => upItem(i,'item_name',e.target.value)} /></td>
+                      <td><select className="form-input" style={{ fontSize: 11, padding: '3px 6px', width: 65 }} value={item.sea_air} onChange={e => upItem(i,'sea_air',e.target.value)}><option>SEA</option><option>AIR</option></select></td>
+                      <td><input type="number" className="form-input" style={{ fontSize: 11, padding: '3px 6px', width: 75 }} value={item.unit_price} onChange={e => upItem(i,'unit_price',e.target.value)} step="0.0001" /></td>
+                      <td><input type="number" className="form-input" style={{ fontSize: 11, padding: '3px 6px', width: 80 }} value={item.qty} onChange={e => upItem(i,'qty',e.target.value)} step="0.1" /></td>
+                      <td className="td-amt" style={{ fontSize: 11 }}>{fmtNum(item.total_amount||0,2)}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <input type="number" className="form-input" style={{ fontSize: 11, padding: '3px 6px', width: 50, borderColor: 'var(--gold)' }} value={item.commission_pct} onChange={e => upItem(i,'commission_pct',e.target.value)} min="1" max="10" />
+                          <span style={{ fontSize: 11, color: 'var(--gold)' }}>%</span>
+                        </div>
+                      </td>
+                      <td className="td-amt" style={{ fontSize: 11, fontWeight: 600, color: 'var(--green)' }}>{fmtNum(item.commission_amount||0,4)}</td>
+                      <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setItems(p => p.filter((_,idx) => idx !== i))}>✕</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'right', fontWeight: 600, padding: '10px 13px', color: 'var(--text-primary)' }}>Totals:</td>
+                    <td className="td-amt" style={{ fontWeight: 700 }}>{fmtUSD(totalAmt)}</td>
+                    <td />
+                    <td className="td-amt" style={{ fontWeight: 700, color: 'var(--green)', fontSize: 14 }}>{fmtUSD(totalCommission)}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
+          {items.length > 0 && (
+            <div className="alert alert-info" style={{ fontSize: 12 }}>
+              💡 Commission rates auto-suggested by factory. Adjust per item if needed. KAANAL invoice will show single total: <strong>{fmtUSD(totalCommission)}</strong>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+            <button className="btn btn-primary btn-lg" onClick={saveAndGenerate} disabled={saving || items.length === 0}>
+              {saving ? '⏳ Generating...' : `✅ Save & Generate Commission Invoice (${fmtUSD(totalCommission)})`}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Router({ page, setPage }) {
   const title = PAGE_TITLES[page] || page;
   const content = (() => {
@@ -2494,6 +2973,7 @@ function Router({ page, setPage }) {
       case 'osr': return <OSR />;
       case 'payments': return <Payments />;
       case 'notes': return <Notes />;
+      case 'commission': return <Commission />;
       case 'pl': return <PLReport />;
       case 'ledger': return <Ledger />;
       case 'customers': return <Customers />;
