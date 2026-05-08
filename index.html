@@ -1434,6 +1434,17 @@ async function readAllSheets(file) {
 // Find header row index (row with most non-empty cells in first 15 rows)
 // ─── SMART EXTRACTION ENGINE ─────────────────────────────────
 // ─── COMPLETE EXTRACTION ENGINE ──────────────────────────────
+
+// Patterns that identify non-item rows (bank details, totals, addresses etc.)
+const SKIP_PATTERNS = /^(total|grand|sub.?total|net weight|gross weight|packed|bank|beneficiary|account|swift|address|note:|remark|payment|shipment|delivery|tel:|fax:|email:|dear|regards|page|invoice no|date:|ref:|from:|to:|attn|please|kindly|enclosed|forwarded|signed|authorized|for and on|the above|say |polyester|100%|92%|woven|knitted|fabric composition)/i;
+
+function isValidItem(desc, qty, price) {
+  if (!desc || desc.trim() === '') return false;
+  if (SKIP_PATTERNS.test(desc.trim())) return false;
+  if (qty === 0 && price === 0) return false;
+  if (desc.length > 80 && !/\d/.test(desc)) return false;
+  return true;
+}
 // Supports: Bangde, HaiHong, Feifan, Daikun, Decoration, E-TEX,
 //           Buwei, ALNO, NG/Neogold, Mingrong, Miju, Tonghui,
 //           Tonghao, Beyond, Xinrun, Leji and generic formats
