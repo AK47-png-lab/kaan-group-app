@@ -1416,10 +1416,12 @@ async function readAllSheets(file) {
     reader.onload = e => {
       try {
         const data = new Uint8Array(e.target.result);
-        const wb = XLSX.read(data, { type: 'array' });
+        const wb = XLSX.read(data, { type: 'array', cellDates: false, sheetStubs: true });
         const result = {};
         wb.SheetNames.forEach(name => {
-          result[name] = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' });
+          result[name] = XLSX.utils.sheet_to_json(wb.Sheets[name], {
+            header: 1, defval: '', raw: false, blankrows: false
+          });
         });
         resolve(result);
       } catch(err) { reject(err); }
@@ -1476,6 +1478,21 @@ function findCol(headers, keywords) {
     if (idx >= 0) return idx;
   }
   return -1;
+}
+
+// Merge two header rows into one combined header (handles Bangde-style two-row headers)
+// Row 7: [SHIPPING MARKS, ORDER No., Quantity..., , , , Amount]
+// Row 8: [, , ITEM, COLOR, QTY(M), UNIT/PRICE, ]
+// Merged: [SHIPPING MARKS, ORDER No., ITEM, COLOR, QTY(M), UNIT/PRICE, Amount]
+function mergeHeaderRows(row1, row2) {
+  const len = Math.max((row1||[]).length, (row2||[]).length);
+  const merged = [];
+  for (let i = 0; i < len; i++) {
+    const a = String(row1 && row1[i] || '').trim();
+    const b = String(row2 && row2[i] || '').trim();
+    merged.push(b || a); // prefer row2 value if available
+  }
+  return merged;
 }
 
 function extractPI(rows, factoryName) {
@@ -1645,9 +1662,11 @@ function extractPI(rows, factoryName) {
     }
 
   } else {
-    // Generic - Bangde, Tonghui, Tonghao, ALNO (when Excel available)
+    // Generic - Bangde, Tonghui, Tonghao, ALNO etc.
+    // Use mergeHeaderRows to handle two-row headers (e.g. Bangde INVICO rows 7+8)
     const hi = findHeaderRow(rows);
-    const headers = rows[hi].map(c => String(c||'').toUpperCase().trim());
+    const headers = mergeHeaderRows(rows[hi], rows[hi+1]).map(c => String(c||'').toUpperCase().trim());
+    console.log('Generic PI headers:', headers, 'hi='+hi);
     const dc = findCol(headers, ['ITEM','DESCRIPTION','FABRIC','DESIGN','QUALITY','PRODUCT','NAME']);
     const cc = findCol(headers, ['COLOR','COLOUR','COL']);
     const qc = findCol(headers, ['QTY(M)','QUANTITY    (M)','QUANTITY','QTY','METER','MTS','M)','LENGTH']);
@@ -1655,7 +1674,10 @@ function extractPI(rows, factoryName) {
     const nwc = findCol(headers, ['N.W.(KGS)','N.W.','NET WEIGHT','NET WT']);
     const gwc = findCol(headers, ['G.W.(KGS','G.W.','GROSS WEIGHT','GROSS WT']);
     const oc = findCol(headers, ['ORDER NO','ORDER No','PO NO','KAAN','ORDER','CONTRACT']);
-    for (let i = hi+1; i < rows.length; i++) {
+    // Skip header row(s) - if row[hi+1] contributed to merged header, start from hi+2
+    const nextRowIsSubheader = rows[hi+1] && rows[hi+1].some((c,i) => String(c||'').trim() && !rows[hi][i]);
+    const dataStart = hi + (nextRowIsSubheader ? 2 : 1);
+    for (let i = dataStart; i < rows.length; i++) {
       const row = rows[i];
       const desc = dc >= 0 ? String(row[dc]||'').trim() : '';
       const qty = qc >= 0 ? parseFloat(row[qc]) || 0 : 0;
@@ -1664,6 +1686,7 @@ function extractPI(rows, factoryName) {
       items.push({ description: desc, color: cc >= 0 ? String(row[cc]||'').trim() : '', quantity: qty, factory_price: price, net_weight: nwc >= 0 ? parseFloat(row[nwc])||0 : 0, gross_weight: gwc >= 0 ? parseFloat(row[gwc])||0 : 0, order_number: oc >= 0 ? String(row[oc]||'').trim() : '', factory_name: factoryName });
     }
   }
+
   return items;
 }
 
