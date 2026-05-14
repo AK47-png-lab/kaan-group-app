@@ -2250,100 +2250,245 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
       }
     }
 
-    // Build documents - this is pure JS, no network calls
+    // Build Excel documents using SheetJS - matching KAAN invoice format exactly
     const docs = [];
-    const sep = '─'.repeat(90);
     const custName = custData.name || '';
-    const custAddr = [custData.address_line1, custData.city, custData.tax_id ? 'RFC/TAX ID: ' + custData.tax_id : ''].filter(Boolean).join(' | ');
+    const validItems = items.filter(i => i.description);
+    const totalQtyMts = validItems.reduce((s,i) => s+(+i.quantity||0), 0);
+    const totalNetWt = validItems.reduce((s,i) => s+(+i.net_weight||0), 0);
+    const totalGrossWt = validItems.reduce((s,i) => s+(+i.gross_weight||0), 0);
+    const totalPkgs = validItems.reduce((s,i) => s+(+i.packages||0), 0);
 
-    function buildCI(invNum, lineData, total, isCC) {
-      const rows = lineData.map(i => {
-        const d = String(i.description||'').substring(0,36).padEnd(37);
-        const c = String(i.color||'').substring(0,10).padEnd(11);
-        const q = String(fmtNum(+i.quantity||0,1)).padEnd(10);
-        const up = String(fmtNum(+i.unit_price||0,4)).padEnd(12);
-        const amt = String(fmtNum((+i.quantity||0)*(+i.unit_price||0),2)).padEnd(12);
-        const nw = String(fmtNum(+i.net_weight||0,1)).padEnd(9);
-        const gw = fmtNum(+i.gross_weight||0,1);
-        return d+c+q+up+amt+nw+gw;
-      }).join('\n');
-      return [
-        co.name, co.address, co.taxId ? 'TAX ID: '+co.taxId : '',
-        '', isCC ? 'COMMERCIAL INVOICE (FOR CUSTOMS CLEARANCE ONLY)' : 'COMMERCIAL INVOICE',
-        '', 'TO: '+custName, custAddr,
-        '', 'INVOICE NO: '+invNum, 'DATE: '+form.invoice_date,
-        isCC ? 'FOR CUSTOMS CLEARANCE USE ONLY - NOT FOR PAYMENT' : '',
-        'PAYMENT: '+form.payment_terms, 'VIA: '+form.via+' | '+form.shipping_terms,
-        form.container_number ? 'CONTAINER: '+form.container_number : '',
-        form.bl_number ? 'B/L: '+form.bl_number : '',
-        form.port_of_destination ? 'PORT OF DESTINATION: '+form.port_of_destination : '',
-        '', sep,
-        'DESCRIPTION                          COLOR      QTY(Mts)  UNIT PRICE  AMOUNT      NET WT   GROSS WT',
-        sep, rows, sep,
-        'TOTAL: '+fmtNum(lineData.reduce((s,i)=>s+(+i.quantity||0),0),0)+' Mts'+' '.repeat(18)+fmtUSD(total),
-        form.misc_charges > 0 ? 'Includes misc charges: '+fmtUSD(+form.misc_charges) : '',
-        '', 'BANKING DETAILS:', 'Company: '+co.name, 'Account No: '+co.bankAccount,
-        'Clearing Code: '+co.clearingCode, 'Bank: '+co.bankName, 'Swift: '+co.swift,
-        '', 'For and on behalf of', co.name, '', '_________________________', 'Authorized Signature(s)'
-      ].filter(l => l !== '').join('\n');
+    function buildInvoiceWb(invNum, lineData, total, isCC) {
+      const wb = XLSX.utils.book_new();
+
+      // ─── INVOICE SHEET ────────────────────────────────────────
+      const invRows = [];
+      invRows.push([co.name]);
+      invRows.push([co.address]);
+      invRows.push(['TAX ID: ' + (co.taxId || '')]);
+      invRows.push([]);
+      invRows.push([isCC ? 'COMMERCIAL INVOICE (FOR CUSTOMS CLEARANCE ONLY)' : 'COMMERCIAL INVOICE']);
+      invRows.push([]);
+      invRows.push(['TO:']);
+      invRows.push([custName]);
+      if (custData.address_line1) invRows.push([custData.address_line1]);
+      if (custData.address_line2) invRows.push([custData.address_line2]);
+      if (custData.city) invRows.push([custData.city + (custData.state ? ', ' + custData.state : '') + (custData.postal_code ? ' ' + custData.postal_code : '')]);
+      if (custData.country) invRows.push([custData.country]);
+      if (custData.phone) invRows.push(['Phone: ' + custData.phone]);
+      if (custData.tax_id) invRows.push(['RFC/TAX ID: ' + custData.tax_id]);
+      invRows.push([]);
+      // Right-side header info
+      const hdrStartRow = invRows.length - 8; // approximate
+      invRows.push([null, null, null, null, null, 'Origin:', 'FOB Shanghai']);
+      invRows.push([]);
+      if (isCC) invRows.push(['FOR CUSTOMS CLEARANCE USE ONLY - NOT FOR PAYMENT']);
+      invRows.push([]);
+
+      // Column headers
+      const colHeaders = ['Item', 'Color', 'Quantity (mts)', 'Packages', 'Net Weight (kgs)', 'Gross Weight (kgs)', 'Unit Price (USD)', 'Amount (USD)', 'Order Number'];
+      invRows.push(colHeaders);
+
+      // Data rows
+      lineData.forEach(item => {
+        invRows.push([
+          item.description || '',
+          item.color || '',
+          +item.quantity || 0,
+          +item.packages || 0,
+          +item.net_weight || 0,
+          +item.gross_weight || 0,
+          +item.unit_price || 0,
+          (+item.quantity||0) * (+item.unit_price||0),
+          item.order_number || '',
+        ]);
+      });
+
+      // Totals row
+      invRows.push(['TOTAL', '', totalQtyMts, totalPkgs, totalNetWt, totalGrossWt, '', total, '']);
+      invRows.push([]);
+      if (form.misc_charges > 0) {
+        invRows.push(['Miscellaneous Charges:', '', '', '', '', '', '', +form.misc_charges, '']);
+        invRows.push([]);
+      }
+
+      // Shipping details
+      invRows.push(['Payment Terms:', form.payment_terms]);
+      invRows.push(['Shipping Terms:', form.shipping_terms]);
+      if (form.via) invRows.push(['Via:', form.via]);
+      if (form.container_number) invRows.push(['Container No.:', form.container_number]);
+      if (form.bl_number) invRows.push(['B/L No.:', form.bl_number]);
+      if (form.port_of_destination) invRows.push(['Port of Destination:', form.port_of_destination]);
+      if (form.sailing_date) invRows.push(['Sailing Date:', form.sailing_date]);
+      invRows.push([]);
+
+      // Banking
+      invRows.push(['BANKING DETAILS:']);
+      invRows.push(['Beneficiary:', co.name]);
+      invRows.push(['Account No.:', co.bankAccount]);
+      invRows.push(['Clearing Code:', co.clearingCode]);
+      invRows.push(['Bank:', co.bankName]);
+      invRows.push(['Bank Address:', co.bankAddress || '']);
+      invRows.push(['Swift:', co.swift]);
+      invRows.push([]);
+      invRows.push(['For and on behalf of ' + co.name]);
+      invRows.push([]);
+      invRows.push(['_________________________']);
+      invRows.push(['Authorized Signature(s)']);
+
+      const invWs = XLSX.utils.aoa_to_sheet(invRows);
+
+      // Set invoice number and date in top-right (columns F-G, rows 9-10 approx)
+      // We'll add these as named cells
+      const invNumRow = 9; // row 9
+      invWs['F' + invNumRow] = { v: 'INVOICE', t: 's' };
+      invWs['G' + invNumRow] = { v: invNum, t: 's' };
+      invWs['F' + (invNumRow+1)] = { v: 'Date', t: 's' };
+      invWs['G' + (invNumRow+1)] = { v: form.invoice_date, t: 's' };
+
+      // Column widths
+      invWs['!cols'] = [
+        {wch:22}, {wch:16}, {wch:15}, {wch:10}, {wch:17}, {wch:17}, {wch:15}, {wch:14}, {wch:15}
+      ];
+      XLSX.utils.book_append_sheet(wb, invWs, 'invoice');
+
+      // ─── PACKING LIST SHEET ────────────────────────────────────
+      const plRows = [];
+      plRows.push([co.name]);
+      plRows.push([co.address]);
+      plRows.push(['TAX ID: ' + (co.taxId || '')]);
+      plRows.push([]);
+      plRows.push(['PACKING LIST']);
+      plRows.push([]);
+      plRows.push(['TO:']);
+      plRows.push([custName]);
+      if (custData.address_line1) plRows.push([custData.address_line1]);
+      if (custData.city) plRows.push([custData.city]);
+      if (custData.tax_id) plRows.push(['RFC: ' + custData.tax_id]);
+      plRows.push([]);
+      plRows.push([null, null, null, null, null, 'Origin:', 'FOB Shanghai', null, 'CONTAINER NO.']);
+      plRows.push([null, null, null, null, null, null, null, null, form.container_number || '']);
+      plRows.push([]);
+      plRows.push(['Item', 'Color', 'Quantity (mts)', 'Packages', 'Net Weight (kgs)', 'Gross Weight (kgs)', 'Order Number', null, 'Loading Sequence']);
+
+      lineData.forEach((item, idx) => {
+        plRows.push([
+          item.description || '',
+          item.color || '',
+          +item.quantity || 0,
+          +item.packages || 0,
+          +item.net_weight || 0,
+          +item.gross_weight || 0,
+          item.order_number || '',
+          null,
+          idx + 1,
+        ]);
+      });
+
+      plRows.push(['TOTAL', '', totalQtyMts, totalPkgs, totalNetWt, totalGrossWt, '', '', '']);
+
+      const plWs = XLSX.utils.aoa_to_sheet(plRows);
+      const plInvRow = 9;
+      plWs['F' + plInvRow] = { v: 'INVOICE', t: 's' };
+      plWs['G' + plInvRow] = { v: invNum, t: 's' };
+      plWs['F' + (plInvRow+1)] = { v: 'Date', t: 's' };
+      plWs['G' + (plInvRow+1)] = { v: form.invoice_date, t: 's' };
+      plWs['!cols'] = [{wch:22},{wch:16},{wch:15},{wch:10},{wch:17},{wch:17},{wch:15},{wch:5},{wch:16}];
+      XLSX.utils.book_append_sheet(wb, plWs, 'packing list');
+
+      // ─── DETAILED PACKING LIST SHEET ──────────────────────────
+      if (dplItems.length > 0) {
+        const dplRows = [];
+        dplRows.push(['Order Number', 'Description', 'Color', 'Roll Number', 'Quantity (Mts)', 'Lot']);
+        dplItems.forEach(item => {
+          dplRows.push([
+            item.order_number || '',
+            item.description || '',
+            item.color || '',
+            item.roll_number || '',
+            +item.quantity_mts || 0,
+            item.lot || '',
+          ]);
+        });
+        dplRows.push(['TOTAL', '', '', dplItems.length + ' rolls', dplItems.reduce((s,i)=>s+(+i.quantity_mts||0),0), '']);
+        const dplWs = XLSX.utils.aoa_to_sheet(dplRows);
+        dplWs['!cols'] = [{wch:15},{wch:22},{wch:14},{wch:12},{wch:15},{wch:12}];
+        XLSX.utils.book_append_sheet(wb, dplWs, 'detailed packing list');
+      }
+
+      return wb;
     }
 
-    docs.push({ label: '📄 Commercial Invoice — '+form.invoice_number, content: buildCI(form.invoice_number, items.filter(i=>i.description).map(i=>({...i,unit_price:+i.unit_price||0})), actualTotal, false), filename: form.invoice_number+'_CI_Actual.txt' });
+    function downloadXlsx(wb, filename) {
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
 
+    // Generate actual CI
+    const actualLineData = validItems.map(i => ({...i, unit_price: +i.unit_price||0}));
+    const actualWb = buildInvoiceWb(form.invoice_number, actualLineData, actualTotal, false);
+    docs.push({
+      label: '📄 Commercial Invoice — ' + form.invoice_number,
+      filename: form.invoice_number + '_CI_Actual.xlsx',
+      wb: actualWb,
+      type: 'xlsx'
+    });
+
+    // Generate CC CI + Credit Note
     if (hasCCPrices) {
-      docs.push({ label: '📄 CC Invoice — '+form.invoice_number+'-CC', content: buildCI(form.invoice_number+'-CC', items.filter(i=>i.description).map(i=>({...i,unit_price:+i.cc_price||+i.unit_price||0})), ccTotal, true), filename: form.invoice_number+'_CI_CC.txt' });
+      const ccLineData = validItems.map(i => ({...i, unit_price: +i.cc_price||+i.unit_price||0}));
+      const ccWb = buildInvoiceWb(form.invoice_number + '-CC', ccLineData, ccTotal, true);
+      docs.push({
+        label: '📄 CC Invoice — ' + form.invoice_number + '-CC',
+        filename: form.invoice_number + '_CI_CC.xlsx',
+        wb: ccWb,
+        type: 'xlsx'
+      });
+
+      // Credit note as Excel
       const diff = ccTotal - actualTotal;
-      docs.push({ label: '📝 Credit Note — '+fmtUSD(diff), filename: form.invoice_number+'_CreditNote.txt', content: [
-        co.name, co.address, '', 'CREDIT NOTE', '', 'TO: '+custName, '',
-        'DATE: '+form.invoice_date, 'REF INVOICE: '+form.invoice_number, 'CC INVOICE: '+form.invoice_number+'-CC', '',
-        sep, 'Difference: CC Invoice vs Actual Invoice     '+fmtUSD(diff),
-        '(CC: '+fmtUSD(ccTotal)+' minus Actual: '+fmtUSD(actualTotal)+')', sep,
-        'TOTAL CREDIT: '+fmtUSD(diff), '', 'This amount will be adjusted against your next payment.',
-        '', 'For and on behalf of', co.name
-      ].join('\n') });
+      const cnWb = XLSX.utils.book_new();
+      const cnRows = [
+        [co.name], [co.address], [co.taxId ? 'TAX ID: ' + co.taxId : ''], [],
+        ['CREDIT NOTE'], [],
+        ['TO:', custName],
+        [custData.address_line1 || ''], [custData.city || ''], [custData.tax_id ? 'RFC/TAX ID: ' + custData.tax_id : ''], [],
+        ['Date:', form.invoice_date],
+        ['Ref Invoice:', form.invoice_number],
+        ['CC Invoice:', form.invoice_number + '-CC'], [],
+        ['Description', 'Amount (USD)'],
+        ['Difference: CC Invoice vs Actual Invoice', diff],
+        ['CC Invoice: ' + fmtUSD(ccTotal) + ' minus Actual: ' + fmtUSD(actualTotal), ''], [],
+        ['TOTAL CREDIT:', diff], [],
+        ['This amount will be adjusted against your next payment.'], [],
+        ['For and on behalf of ' + co.name],
+      ];
+      const cnWs = XLSX.utils.aoa_to_sheet(cnRows);
+      cnWs['!cols'] = [{wch:45},{wch:15}];
+      XLSX.utils.book_append_sheet(cnWb, cnWs, 'credit note');
+      docs.push({
+        label: '📝 Credit Note — ' + fmtUSD(diff),
+        filename: form.invoice_number + '_CreditNote.xlsx',
+        wb: cnWb,
+        type: 'xlsx'
+      });
     }
 
-    const sep100 = '─'.repeat(100);
-    docs.push({ label: '📦 Packing List — '+form.invoice_number, filename: form.invoice_number+'_PL.txt', content: [
-      co.name, co.address, '', 'PACKING LIST', '',
-      'INVOICE: '+form.invoice_number, 'DATE: '+form.invoice_date,
-      form.container_number ? 'CONTAINER: '+form.container_number : '', '',
-      sep100, 'DESCRIPTION                  COLOR       QTY(Mts)  PKGS  NET WT    GROSS WT   CBM      ORDER NO.', sep100,
-      ...items.filter(i=>i.description).map(i => {
-        const d=String(i.description).substring(0,28).padEnd(29); const c=String(i.color||'').padEnd(12);
-        const q=String(fmtNum(+i.quantity||0,1)).padEnd(10); const p=String(i.packages||'').padEnd(6);
-        const nw=String(fmtNum(+i.net_weight||0,1)).padEnd(10); const gw=String(fmtNum(+i.gross_weight||0,1)).padEnd(11);
-        const cbm=String(fmtNum(+i.cbm||0,3)).padEnd(9); return d+c+q+p+nw+gw+cbm+(i.order_number||'');
-      }),
-      sep100,
-      'TOTAL: '+fmtNum(items.reduce((s,i)=>s+(+i.quantity||0),0),0)+' Mts | '+items.reduce((s,i)=>s+(+i.packages||0),0)+' Pkgs | Net: '+fmtNum(items.reduce((s,i)=>s+(+i.net_weight||0),0),1)+' kgs | Gross: '+fmtNum(items.reduce((s,i)=>s+(+i.gross_weight||0),0),1)+' kgs'
-    ].filter(l=>l!=='').join('\n') });
-
-    if (dplItems.length > 0) {
-      const sep80 = '─'.repeat(80);
-      docs.push({ label: '📋 Detailed Packing List — '+form.invoice_number, filename: form.invoice_number+'_DPL.txt', content: [
-        co.name, co.address, '', 'DETAILED PACKING LIST', '',
-        'INVOICE: '+form.invoice_number, 'DATE: '+form.invoice_date, '',
-        sep80, 'ORDER NO.    DESCRIPTION                     ROLL NO.   QTY(Mts)   LOT', sep80,
-        ...dplItems.map(i => {
-          const on=String(i.order_number||'').padEnd(13); const d=String(i.description||'').substring(0,31).padEnd(32);
-          const r=String(i.roll_number||'').padEnd(11); const q=String(fmtNum(+i.quantity_mts||0,1)).padEnd(11);
-          return on+d+r+q+(i.lot||'');
-        }),
-        sep80, 'TOTAL: '+fmtNum(dplItems.reduce((s,i)=>s+(+i.quantity_mts||0),0),1)+' Mts | '+dplItems.length+' Rolls'
-      ].join('\n') });
-    }
-
-    // Save to archive in background - don't block document generation
+    // Save to archive in background
     d.from('document_archive').insert(docs.map(doc => ({
       doc_number: form.invoice_number,
-      doc_type: doc.filename.includes('CI_CC') ? 'commercial_invoice_cc' : doc.filename.includes('DPL') ? 'detailed_packing_list' : doc.filename.includes('_PL') ? 'packing_list' : doc.filename.includes('Credit') ? 'credit_note_cc_diff' : 'commercial_invoice_actual',
+      doc_type: doc.filename.includes('CI_CC') ? 'commercial_invoice_cc' : doc.filename.includes('Credit') ? 'credit_note_cc_diff' : 'commercial_invoice_actual',
       entity, doc_date: form.invoice_date,
       financial_year: new Date(form.invoice_date).getFullYear(),
       counterparty_type: 'customer', counterparty_id: form.customer_id,
       counterparty_name: custName, amount: actualTotal, currency: 'USD',
       source_table: 'commercial_invoices', source_id: inv.id, file_name: doc.filename
-    }))).then(() => {}).catch(() => {}); // fire and forget
+    }))).then(() => {}).catch(() => {});
 
     setGeneratedDocs(docs);
     setStep(4);
@@ -2351,17 +2496,26 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
 
     } catch(err) {
       console.error('saveAndGenerate error:', err);
-      alert('Error: ' + err.message + '\n\nPlease try again. If the problem persists, check your internet connection.');
+      alert('Error: ' + err.message + '\n\nPlease try again.');
     }
     setSaving(false);
   }
 
   function download(doc) {
-    const blob = new Blob([doc.content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = doc.filename; a.click();
-    URL.revokeObjectURL(url);
+    if (doc.type === 'xlsx' && doc.wb) {
+      const wbout = XLSX.write(doc.wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = doc.filename; a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const blob = new Blob([doc.content || ''], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = doc.filename; a.click();
+      URL.revokeObjectURL(url);
+    }
   }
 
   const stepLabels = ['Invoice Details', 'Upload Factory Docs', 'Review & Prices', 'Documents Ready'];
