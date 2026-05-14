@@ -166,6 +166,7 @@ function db(entity = 'HK') {
 function fmt(n, d = 2) {
   return new Intl.NumberFormat('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }).format(n || 0);
 }
+function fmtNum(n, d = 2) { return fmt(n, d); }
 function fmtUSD(n) { return '$' + fmt(n); }
 function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }); }
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -1873,9 +1874,21 @@ async function parseFile(file, hint, factoryName) {
 
     const sheetNames = Object.keys(sheets);
 
+    // Debug: log raw first rows of each sheet so parseLog shows what XLSX.js read
+    const debugInfo = sheetNames.map(name => {
+      const rows = sheets[name];
+      const hi = findHeaderRow(rows);
+      const hdr = mergeHeaderRows(rows[hi], rows[hi+1]).map(c => String(c||'').trim()).filter(Boolean).join('|');
+      const fmt = detectFactoryFormat(rows);
+      return '['+name+'] fmt='+fmt+' hdr='+hdr.substring(0,60);
+    }).join(' /// ');
+    console.log('DEBUG sheets:', debugInfo);
+
     if (sheetNames.length === 1) {
       const rows = Object.values(sheets)[0];
       const fmt = detectFactoryFormat(rows);
+      const hi = findHeaderRow(rows);
+      const debugHeaders = mergeHeaderRows(rows[hi], rows[hi+1]).map(c => String(c||'').trim()).filter(Boolean).join(' | ');
       if (hint === 'dpl' || fmt === 'mingrong') {
         dpl_items = extractDPL(rows, detectedFactory);
       } else if (hint === 'pl') {
@@ -1926,7 +1939,7 @@ async function parseFile(file, hint, factoryName) {
     }
 
     console.log(detectedFactory, '→ PI:', pi_items.length, 'PL:', pl_items.length, 'DPL:', dpl_items.length, '| sheets:', Object.keys(sheets));
-    return { pi_items, pl_items, dpl_items, detectedFactory };
+    return { pi_items, pl_items, dpl_items, detectedFactory, _sheets: Object.keys(sheets).join(','), _fmt: 'checked' };
   } catch(err) {
     console.error('parseFile error', factoryName, err);
     return { pi_items: [], pl_items: [], dpl_items: [], detectedFactory: factoryName, error: err.message };
@@ -2076,7 +2089,13 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
           const gotPl = (r.pl_items || []).length;
           const gotDpl = (r.dpl_items || []).length;
           appendLog('    PI:' + gotPi + ' PL:' + gotPl + ' DPL:' + gotDpl);
-          if (gotPi === 0 && gotPl === 0 && gotDpl === 0) appendLog('    ⚠️ No items found in this file');
+          if (gotPi === 0 && gotPl === 0 && gotDpl === 0) {
+            appendLog('    ⚠️ No items found in this file');
+            if (r.error) appendLog('    Error: ' + r.error);
+            if (r._sheets) appendLog('    Sheets: ' + r._sheets);
+            if (r._fmt) appendLog('    Format detected: ' + r._fmt);
+            if (r._headers) appendLog('    Headers: ' + r._headers);
+          }
           if (gotPi > piItems.length) piItems = r.pi_items;
           if (gotPl > plItems.length) plItems = r.pl_items;
           if (gotDpl > dplExtracted.length) dplExtracted = r.dpl_items;
@@ -2486,6 +2505,14 @@ function NewInvoiceModal({ customers, entity, filterType, onClose, onSaved }) {
 
         {step === 3 && (
           <>
+            {parseLog.length > 0 && (
+              <div style={{ background: 'var(--navy)', border: '1px solid var(--accent)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontFamily: 'monospace', fontSize: 11, maxHeight: 200, overflowY: 'auto' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-light)', marginBottom: 6 }}>📋 Extraction Log:</div>
+                {parseLog.map((line, i) => (
+                  <div key={i} style={{ color: line.startsWith('✓') || line.startsWith('Total') ? 'var(--green)' : line.startsWith('⚠') || line.startsWith('Error') ? 'var(--red)' : line.startsWith('---') ? 'var(--accent-light)' : line.startsWith('  [') ? '#888' : 'var(--text-muted)', padding: '1px 0' }}>{line}</div>
+                ))}
+              </div>
+            )}
             {missingCount > 0 && (
               <div className="alert alert-warn">⚠️ <strong>{missingCount} item{missingCount>1?'s':''}</strong> have no price in our database — fill in Customer Price manually (red border). Factory price shown for reference.</div>
             )}
